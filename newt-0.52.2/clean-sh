@@ -1,0 +1,6 @@
+#!/bin/sh
+make clean
+make -C po clean
+rm -rf config.status config.log config.h config.h.in\~ .depend autom4te.cache Makefile
+rm -f po/Makefile po/Makefile.in po/stamp-po
+find -type f -name \*~ | xargs rm -f

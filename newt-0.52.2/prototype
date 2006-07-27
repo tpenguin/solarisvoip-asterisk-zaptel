@@ -1,0 +1,8 @@
+i pkginfo
+d none usr ? ? ?
+d none usr/include ? ? ?
+f none usr/include/newt.h=newt.h 0644 root bin
+d none usr/lib ? ? ?
+f none usr/lib/libnewt.so.0.52.1=libnewt.so.0.52.1 0755 root bin
+s none usr/lib/libnewt.so.0=libnewt.so.0.52.1
+s none usr/lib/libnewt.so=libnewt.so.0.52.1

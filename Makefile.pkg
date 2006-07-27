@@ -1,0 +1,20 @@
+#
+# (C) 2006 Thralling Penguin LLC. All rights reserved.
+#
+
+all: $(PKGSRCS) $(COMMONSRCS) $(PKGARCHIVE) pkginfo
+	$(PKGMK) -a $(ARCH) -d $(PKGARCHIVE) -f prototype_$(ARCH) TOP=$(TOP)
+	$(PKGTRANS) -s $(PKGARCHIVE) $(PKGNAME)-$(ARCH)-$(VERSION).pkg $(PKGNAME)
+
+$(PKGARCHIVE):
+	test -d $@ || $(MKDIR) $@
+
+clean clobber:
+	$(RM) pkginfo
+	$(RM) -r $(PKGARCHIVE)/$(PKGNAME)
+
+pkginfo: pkginfo_src
+	sed -e 's/<version>/$(VER),REV=$(REV)/' pkginfo_src | \
+	sed -e 's/<arch>/$(ARCH)/' > $@
+
+

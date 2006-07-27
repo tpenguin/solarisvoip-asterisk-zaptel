@@ -1,0 +1,25 @@
+#!/usr/sbin/dtrace -s
+
+#pragma D option flowindent
+
+fbt:zaptel::entry
+{
+    self->follow = 1;
+}
+
+fbt:zaptel::return
+{
+    self->follow = 0;
+    trace(arg1);
+}
+
+fbt:::entry
+/self->follow/
+{
+}
+    
+fbt:::return
+/self->follow/
+{
+    trace(arg1);
+}

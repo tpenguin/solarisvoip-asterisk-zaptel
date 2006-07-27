@@ -1,0 +1,12 @@
+PKG=SVnewt
+NAME=libnewt
+ARCH=sparc
+VERSION=0.52.1
+CATEGORY=system
+DESC=libnewt
+VENDOR=SolarisVoip.com
+HOTLINE=This package is unsupported.
+EMAIL=joe@solarisvoip.com
+CLASSES=none
+BASEDIR=/
+MAXINST=9999

@@ -1,0 +1,9 @@
+#
+# (C) 2006 Thralling Penguin LLC. All rights reserved.
+#
+!include prototype_com
+d none kernel ? ? ?
+d none kernel/drv ? ? ?
+d none kernel/drv/sparcv9 ? ? ?
+f none kernel/drv/sparcv9/zaptel=$TOP/zaptel 0755 root sys
+f none kernel/drv/zaptel.conf=$TOP/zaptel.conf 0644 root sys

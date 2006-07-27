@@ -1,0 +1,70 @@
+#!/bin/sh
+
+#
+# (C) 2006 Thralling Penguin LLC. All rights reserved.
+
+ADD_DRV=/usr/sbin/add_drv
+DRVS=zaptel
+
+havecompat()
+{
+	while [ -n "$1" ]
+	do
+		prtconf -vp | grep "'$1'" > /dev/null
+		if [ $? -eq 0 ];
+		then
+			return 0
+		fi
+		shift;
+	done
+	return 1
+}
+
+compat2alias()
+{
+	alias=
+	while [ -n "$1" ]
+	do
+		alias="$alias \"$1\"";
+		shift;
+	done
+	echo $alias
+}
+
+zaptel_COMPAT=""
+zaptel_DRVPERM='* 0600 root sys'
+
+if [ "${BASEDIR}" = "/" ]
+then
+	BFLAG=
+	NFLAG=-n
+else
+	BFLAG="-b ${BASEDIR}"
+	NFLAG=
+fi
+
+for DRV in ${DRVS}
+do
+	grep "type=ddi_zaptel" $BASEDIR/etc/devlink.tab 2>&1 >/dev/null
+	if [ $? -ne 0 ]; then
+		echo "type=ddi_zaptel	zap/\M0" >>$BASEDIR/etc/devlink.tab
+	fi
+	grep "^${DRV} " $BASEDIR/etc/name_to_major 2>&1 >/dev/null
+	if [ $? -ne 0 ]; then
+		eval `echo drvcompat='"$'${DRV}_COMPAT'"'`
+		eval `echo drvperm='"$'${DRV}_DRVPERM'"'`
+		drvalias=`compat2alias $drvcompat`
+		if havecompat $drvcompat
+		then
+			drvflags="${BFLAG}"
+		else
+			drvflags="${BFLAG} ${NFLAG}"
+		fi
+		${ADD_DRV} -v -f ${DRV}
+		if [ $? -ne 0 ]; then
+			echo "postinstall: add_drv $DRV failed\n" >&2
+			exit 1
+		fi
+	fi
+done
+exit 0

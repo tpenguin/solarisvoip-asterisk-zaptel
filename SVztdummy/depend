@@ -1,0 +1,6 @@
+#
+# (C) 2006 Thralling Penguin LLC.
+#
+P SUNWcar	Core Architecture, (Root)
+P SUNWcsr	Core Solaris, (Root)
+P SVzaptel	SolarisVoip.com Zaptel Driver

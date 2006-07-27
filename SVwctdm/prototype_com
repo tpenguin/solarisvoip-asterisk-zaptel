@@ -1,0 +1,8 @@
+#
+# (C) 2006 Thralling Penguin LLC. All rights reserved.
+#
+i pkginfo
+i postinstall
+i postremove
+i checkinstall
+i depend

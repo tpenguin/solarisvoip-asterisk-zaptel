@@ -1,0 +1,9 @@
+#
+# (C) 2006 Thralling Penguin LLC. All rights reserved.
+#
+!include prototype_com
+d none kernel ? ? ?
+d none kernel/drv ? ? ?
+d none kernel/drv/amd64 ? ? ?
+f none kernel/drv/amd64/wctdm=$TOP/wctdm 0755 root sys
+f none kernel/drv/wctdm.conf=$TOP/wctdm.conf 0644 root sys

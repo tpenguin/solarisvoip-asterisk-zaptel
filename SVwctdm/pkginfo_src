@@ -1,0 +1,12 @@
+PKG=SVwctdm
+NAME=SolarisVoip.com TDM400P Zaptel Driver
+ARCH=<arch>
+VERSION=<version>
+CATEGORY=system
+DESC=TDM400P Driver for Zaptel Devices.
+VENDOR=SolarisVoip.com
+HOTLINE=This package is unsupported.
+EMAIL=joe@thrallingpenguin.com
+CLASSES=none
+BASEDIR=/
+MAXINST=9999

@@ -1,0 +1,64 @@
+2006-05-30 Kevin P. Fleming <kpfleming@digium.com>
+
+	* libpri 1.2.3 Released
+
+2006-04-30 15:17 +0000 [r332]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* Makefile: set LDCONFIG_FLAGS for GNU/kFreeBSD as well use the
+	  flags during installation
+
+2006-04-27 16:08 +0000 [r327]  Matt Frederickson <creslin@digium.com>
+
+	* q931.c, libpri.h: Make sure we pass the call back in the
+	  setup_ack
+
+2006-04-04 15:36 +0000 [r323]  Matt Frederickson <creslin@digium.com>
+
+	* Makefile: Fix for #6566 (Makefile does not honor DESTDIR)
+
+2006-02-17 18:55 +0000 [r316]  Matt Frederickson <creslin@digium.com>
+
+	* q931.c: Backport of 6480
+
+2006-02-15 17:59 +0000 [r311]  Matt O'Gorman <mogorman@digium.com>
+
+	* README: bug 6500 typo in README.
+
+2006-02-13 23:06 +0000 [r306]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* pri_facility.c: suppress annoying message about unsupported
+	  components in facility messages
+
+2006-01-18 Russell Bryant <russell@digium.com>
+
+	* Libpri 1.2.2 Released
+
+2006-01-17 13:43 +0000 [r291]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* q931.c: ensure that user-user info field in call is properly
+	  reset when not needed
+
+2006-01-10 20:19 +0000 [r290]  Matt Frederickson <creslin@digium.com>
+
+	* Makefile: Backport of doing correct minor numbers to 1.2 (#6188)
+
+2005-12-27 14:01 +0000 [r284]  Matt Frederickson <creslin@digium.com>
+
+	* q931.c: Fix for issue #6039 backported to 1.2
+
+2005-12-06 21:35 +0000 [r280]  Matt Frederickson <creslin@digium.com>
+
+	* q921.c: Send RR as command instead of response when T200 expires
+	  after receiving RNR.
+
+2005-12-01 23:13 +0000 [r274]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* Makefile: Makefile 'update' target now supports Subversion
+	  repositories (issue #5875)
+
+2005-12-01 02:34 +0000 [r270]  Matt Frederickson <creslin@digium.com>
+
+	* q931.c: Backport of fix from trunk. Fix broken single digit
+	  keypad facility code.
+
+

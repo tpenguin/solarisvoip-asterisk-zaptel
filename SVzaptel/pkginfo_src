@@ -1,0 +1,12 @@
+PKG=SVzaptel
+NAME=SolarisVoip.com Zaptel Driver
+ARCH=<arch>
+VERSION=<version>
+CATEGORY=system
+DESC=Base Driver for Zaptel Devices.
+VENDOR=SolarisVoip.com
+HOTLINE=This package is unsupported.
+EMAIL=joe@thrallingpenguin.com
+CLASSES=none
+BASEDIR=/
+MAXINST=9999

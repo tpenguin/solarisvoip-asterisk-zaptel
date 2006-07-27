@@ -1,0 +1,12 @@
+PKG=SVztdummy
+NAME=SolarisVoip.com Zaptel Dummy Driver
+ARCH=<arch>
+VERSION=<version>
+CATEGORY=system
+DESC=Dummy Driver for Zaptel Devices.
+VENDOR=SolarisVoip.com
+HOTLINE=This package is unsupported.
+EMAIL=joe@thrallingpenguin.com
+CLASSES=none
+BASEDIR=/
+MAXINST=9999

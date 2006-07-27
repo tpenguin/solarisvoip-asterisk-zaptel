@@ -1,0 +1,150 @@
+#!/bin/sh
+#
+# ident "%Z%%M%	%I%	%E% GED"
+#
+# Copyright (c) 2002-2004 by Garrett D'Amore <garrett@damore.org>.
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. Neither the name of the author nor the names of any co-contributors
+#    may be used to endorse or promote products derived from this software
+#    without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS ``AS IS''
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+# 
+
+#
+# The GLD wasn't added until Solaris 8 on SPARC, and the GLDv2
+# wasn't added until Solaris 7.
+#
+sparc_MINOS=5.8
+sparc_MINOE="Solaris 8 10/00"
+sparc_PATCHREQS_5_8="SUNWcsr:109202-01"
+i386_MINOS=5.7
+i386_MINOE="Solaris 7"
+
+ARCH=${ARCH:-`pkgparam $reloc SUNWcsr ARCH`}
+rversion=`pkgparam $reloc SUNWcsr SUNW_PRODVERS | cut -d/ -f1`
+if [ -z "$rversion" ]
+then
+	# 2.6 and earlier lack the SUNW_ prefix
+	rversion=`pkgparam $reloc SUNWcsr PRODVERS | cut -d/ -f1`
+fi
+if [ -n $rversion ]
+then
+	VERSION=$rversion
+else
+	# we can't figure our OS version -- never a good sign
+	VERSION=0.0
+fi
+
+eval 'MINVER="$'${ARCH}_MINOS'"'
+eval 'MINOE="$'${ARCH}_MINOE'"'
+
+inst1=`echo $VERSION | cut -d . -f1`
+inst2=`echo $VERSION | cut -d . -f2`
+inst3=`echo $VERSION | cut -d . -f3`
+inst1=${inst1:-0}
+inst2=${inst2:-0}
+inst3=${inst3:-0}
+
+reqd1=`echo $MINVER | cut -d . -f1`
+reqd2=`echo $MINVER | cut -d . -f2`
+reqd3=`echo $MINVER | cut -d . -f3`
+reqd1=${reqd1:-0}
+reqd2=${reqd2:-0}
+reqd3=${reqd3:-0}
+
+badver=
+if [ ${inst1} -ne  ${reqd1} ]
+then
+	# Major number mismatch -- SunOS 6.x or SunOS 4.x!?!
+	# We refuse to install for safety.
+	badver=yes
+elif [ ${inst2} -lt ${reqd2} ]
+then
+	badver=yes
+elif [ ${inst2} -gt ${reqd2} ]
+then
+	badver=
+elif [ ${inst3} -lt ${reqd3} ]
+then
+	badver=yes
+fi
+
+if [ -n "${badver}" ]
+then
+	echo "Operating environment requirement not met."
+	echo "This package requires ${MINOE} or better."
+	exit 3
+fi
+
+#
+# OS requirement met, now check patches
+#
+PATCHREQS='$'${ARCH}_PATCHREQS_${VERSION}
+eval PATCHREQS=`echo $PATCHREQS | tr . _`
+
+patch_is_applied()
+{
+	pkg=$1
+	patch=$2
+	num=`echo $patch | cut -d- -f1`
+	rev=`echo $patch | cut -d- -f2`
+
+	patches=`pkgparam $reloc $pkg PATCHLIST`
+	obs=`pkgparam -v $reloc $pkg | grep 'PATCH_INFO' | sed -e 's/.*Obsoletes://' -e 's/Requires:.*//'`
+	for p in $patches $obs
+	do
+		case $p in
+		${num}-*)
+			irev=`echo $p | cut -d- -f2`
+			if [ ${irev} -ge ${rev} ]
+			then
+				return 0
+			fi
+			;;
+		esac
+	done
+	return 1
+}
+
+notapplied=
+for tp in $PATCHREQS
+do
+	tp1=`echo $tp | cut -d: -f1`
+	for tp2 in `echo $tp | cut -d: -f2 | tr , ' '`
+	do
+		patch_is_applied $tp1 $tp2
+		if [ $? -ne 0 ]
+		then
+			notapplied="$notapplied $tp2"
+		fi
+	done
+done
+
+if [ -n "$notapplied" ]
+then
+	echo "Patch requirement not met."
+	echo This package requires the following patches be applied: ${notapplied}
+	exit 3
+fi
+
+

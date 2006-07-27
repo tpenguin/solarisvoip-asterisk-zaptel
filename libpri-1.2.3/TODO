@@ -1,0 +1,10 @@
+General: 
+-- D-Channel Backup
+-- Test against 4e
+
+Q.921:
+-- Support unnumbered information frames
+
+Q.931:
+-- Locking Shift IE
+-- Implement the 11 missing Q.931 timers

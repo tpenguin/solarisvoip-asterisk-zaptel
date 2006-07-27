@@ -1,0 +1,36 @@
+#
+# (C) 2006 Thralling Penguin LLC. All rights reserved.
+#
+i pkginfo
+i postinstall
+i postremove
+i checkinstall
+i depend
+d none opt ? ? ?
+d none opt/lib ? ? ?
+f none opt/lib/libtonezone.so=$TOP/libtonezone.so 0755 root bin
+d none opt/ ? ? ?
+d none opt/include ? ? ?
+f none opt/include/arith.h=$TOP/arith.h 0644 root bin
+f none opt/include/biquad.h=$TOP/biquad.h 0644 root bin
+f none opt/include/compat.h=$TOP/compat.h 0644 root bin
+f none opt/include/digits.h=$TOP/digits.h 0644 root bin
+f none opt/include/ecdis.h=$TOP/ecdis.h 0644 root bin
+f none opt/include/fasthdlc.h=$TOP/fasthdlc.h 0644 root bin
+f none opt/include/mec2.h=$TOP/mec2.h 0644 root bin
+f none opt/include/mec2_const.h=$TOP/mec2_const.h 0644 root bin
+f none opt/include/tones.h=$TOP/tones.h 0644 root bin
+f none opt/include/tonezone.h=$TOP/tonezone.h 0644 root bin
+f none opt/include/zaptel.h=$TOP/zaptel.h 0644 root bin
+d none opt/sbin ? ? ?
+f none opt/sbin/ztcfg=$TOP/ztcfg 0755 root bin
+f none opt/sbin/zttest=$TOP/zttest 0755 root bin
+f none opt/sbin/ztdiag=$TOP/ztdiag 0755 root bin
+f none opt/sbin/timertest=$TOP/timertest 0755 root bin
+f none opt/sbin/ztmonitor=$TOP/ztmonitor 0755 root bin
+d none opt/etc ? ? ?
+e none opt/etc/zaptel.conf=$TOP/zaptel.conf.sample 0644 root root
+f none opt/lib/libpri.so.1.0=$TOP/libpri/libpri.so.1.0 0755 root bin
+s none opt/lib/libpri.so.1=libpri.so.1.0
+s none opt/lib/libpri.so=libpri.so.1.0
+f none opt/include/libpri.h=$TOP/libpri/libpri.h 0644 root bin

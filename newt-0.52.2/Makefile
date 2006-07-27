@@ -1,0 +1,162 @@
+LIBS = -L/opt/csw/lib -R/opt/csw/lib -lslang -ldl #-lefence
+SHLIBS = -L/opt/csw/lib -R/opt/csw/lib -lslang -dl 
+LIBTCL = -ltcl8.4
+
+GPM_SUPPORT=@gpm_support@
+CFLAGS = $(RPM_OPT_FLAGS) -Wall  -D_GNU_SOURCE -g -O2 -DUTF8 -fPIC -I/opt/csw/include
+
+SHLIBFLAGS= 
+VERSION = 0.52.1
+CVSTAG = r$(subst .,-,$(VERSION))
+SONAME = 0.52
+
+PYTHONVERS = python2.4
+
+WHIPTCLSO=whiptcl.so
+
+PROGS = test whiptail testgrid testtree showchars showkey
+TESTOBJS = test.o
+NDIALOGOBJS = whiptail.o dialogboxes.o
+WHIPTCLOBJS = whiptcl.o dialogboxes.o
+LIBNEWT = libnewt.a
+LIBNEWTSH = libnewt.so.$(VERSION)
+LIBNEWTSONAME = libnewt.so.$(SONAME)
+LIBOBJS = newt.o button.o form.o checkbox.o entry.o label.o listbox.o \
+          scrollbar.o textbox.o scale.o grid.o windows.o buttonbar.o \
+	  checkboxtree.o
+
+SHCFLAGS = -fPIC
+
+prefix = /usr
+includedir = $(prefix)/include
+libdir = $(prefix)/lib
+bindir = $(prefix)/bin
+ARCHNAME = $(shell uname -m | sed 's/i.86/i386/')
+
+#--------------------------------------
+
+SOURCES = $(subst .o,.c,$(TESTOBJS) $(NDIALOGOBJS) $(LIBOBJS))
+
+SHAREDDIR = shared
+SHAREDOBJS = $(patsubst %,$(SHAREDDIR)/%, $(LIBOBJS))
+
+ifeq (.depend,$(wildcard .depend))
+TARGET=$(PROGS)
+else
+TARGET=depend $(PROGS)
+endif
+
+all:	$(TARGET) _snackmodule.so po/stamp-po
+
+po/stamp-po:
+	$(MAKE) -C po stamp-po
+
+test:	$(TESTOBJS) $(LIBNEWT)
+	$(CC) -g -o test $(TESTOBJS) $(LIBNEWT) $(LIBS) 
+
+testgrid:	testgrid.o $(LIBNEWT)
+	$(CC) -g -o testgrid testgrid.o $(LIBNEWT) $(LIBS)
+
+testtree:	testtree.o $(LIBNEWT)
+	$(CC) -g -o testtree testtree.o $(LIBNEWT) $(LIBS)
+
+showchars:	showchars.o $(LIBNEWT)
+	$(CC) -g -o showchars showchars.o $(LIBNEWT) $(LIBS)
+
+showkey:	showkey.o $(LIBNEWT)
+	$(CC) -g -o showkey showkey.o $(LIBNEWT) $(LIBS)
+
+_snackmodule.so:   snackmodule.c $(LIBNEWTSH)
+	for ver in $(PYTHONVERS) ; do \
+	    if [ ! -f "$$ver/_snackmodule.so" -o $(LIBNEWTSH) -nt "$$ver/_snackmodule.so" ]; then \
+	    	mkdir -p $$ver ;\
+	        $(CC) $(CFLAGS) -I/usr/include/$$ver -fPIC -c -o $$ver/snackmodule.o snackmodule.c ;\
+		$(CC) --shared $(SHCFLAGS) -o $$ver/_snackmodule.so $$ver/snackmodule.o -L .  -lnewt -lslang ;\
+	    fi ; \
+	done
+
+whiptail: $(NDIALOGOBJS) $(LIBNEWTSH)
+	$(CC) -g -o whiptail $(NDIALOGOBJS) -L . -lnewt $(LIBS) -lpopt -lintl
+
+whiptcl.so: $(WHIPTCLOBJS) $(LIBNEWTSH)
+	$(CC) -shared $(SHCFLAGS) -o whiptcl.so $(WHIPTCLOBJS) -L . -lnewt  $(LIBTCL) -lslang -lpopt -lm
+
+# Ensure dialogboxes is compiled -fPIC
+dialogboxes.o: dialogboxes.c
+	$(CC) $(CFLAGS) $(SHCFLAGS) -c dialogboxes.c
+
+whiptcl.o:   whiptcl.c
+	$(CC) -I/usr/include/tcl8.4 $(SHCFLAGS) $(CFLAGS) -c whiptcl.c
+
+
+$(LIBNEWT): $(LIBOBJS)
+	ar rv $@ $^
+
+newt.o: newt.c Makefile
+	$(CC) $(CFLAGS) -DVERSION=\"$(VERSION)\" -c -o $@ $<
+
+veryclean: clean
+	rm -f .depend
+
+clean:
+	rm -f $(PROGS) *.o $(LIBNEWT) core $(LIBNEWTSH)  \
+		$(SHAREDOBJS) *.so*
+
+depend:
+	$(CPP) $(CFLAGS) -M $(SOURCES) > .depend
+
+$(SHAREDDIR):
+	mkdir -p $(SHAREDDIR)
+
+sharedlib: $(LIBNEWTSH)
+
+$(LIBNEWTSH): $(SHAREDDIR) $(SHAREDOBJS)
+	$(CC) -shared -o $(LIBNEWTSH) $(SHLIBFLAGS) $(SHAREDOBJS) $(SHLIBS)
+	ln -fs $(LIBNEWTSH) libnewt.so
+
+$(SHAREDDIR)/%.o : %.c
+	$(CC) $(SHCFLAGS) -c $(CFLAGS) -o $@ $<
+
+$(SHAREDDIR)/newt.o: newt.c Makefile
+	$(CC) $(SHCFLAGS) $(CFLAGS) -DVERSION=\"$(VERSION)\" -c -o $@ $<
+
+
+install: $(LIBNEWT) install-sh whiptail
+	[ -d $(instroot)/$(bindir) ] || install -m 755 -d $(instroot)/$(bindir)
+	[ -d $(instroot)/$(libdir) ] || install -m 755 -d $(instroot)/$(libdir)
+	[ -d $(instroot)/$(includedir) ] || install -m 755 -d $(instroot)/$(includedir)
+	install -m 644 newt.h $(instroot)/$(includedir)
+	install -m 644 $(LIBNEWT) $(instroot)/$(libdir)
+	install -m 755 whiptail $(instroot)/$(bindir)
+
+install-sh: sharedlib $(WHIPTCLSO) _snackmodule.so
+	[ -d $(instroot)/$(libdir) ] || install -m 755 -d $(instroot)/$(libdir)
+	install -m 755 $(LIBNEWTSH) $(instroot)/$(libdir)
+	ln -sf $(LIBNEWTSH) $(instroot)/$(libdir)/libnewt.so
+	[ -n "$(WHIPTCLSO)" ] && install -m 755 whiptcl.so $(instroot)/$(libdir) || :
+	for ver in $(PYTHONVERS) ; do \
+	   [ -d $(instroot)/$(libdir)/$$ver/site-packages ] || install -m 755 -d $(instroot)/$(libdir)/$$ver/site-packages ;\
+	   install -m 755 $$ver/_snackmodule.so $(instroot)/$(libdir)/$$ver/site-packages ;\
+	   install -m 755 snack.py $(instroot)/$(libdir)/$$ver/site-packages ;\
+	done
+
+configure:  configure.in
+	autoconf
+	echo "You need to rerun ./configure before continuing"
+	exit 1
+
+archive:    configure
+	@cvs tag -F $(CVSTAG)
+	@rm -rf /tmp/newt-$(VERSION) /tmp/newt
+	@cd /tmp; cvs export -r$(CVSTAG) newt; mv newt newt-$(VERSION)
+	@cd /tmp/newt-$(VERSION); autoconf
+	@cd /tmp; tar czSpf newt-$(VERSION).tar.gz newt-$(VERSION)
+	@rm -rf /tmp/newt-$(VERSION)
+	@cp /tmp/newt-$(VERSION).tar.gz .
+	@rm -f /tmp/newt-$(VERSION).tar.gz
+	@echo " "
+	@echo "The final archive is ./newt-$(VERSION).tar.gz."
+
+ifeq (.depend,$(wildcard .depend))
+include .depend
+endif
