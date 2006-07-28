@@ -29,7 +29,6 @@
  */
 
 #include <stdio.h> 
-#include <getopt.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
