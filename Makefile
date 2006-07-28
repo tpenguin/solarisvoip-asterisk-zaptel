@@ -19,7 +19,7 @@ MODULES = libtonezone.so libpri zaptel ztdummy wctdm wcte11xp ztcfg zttest ztdia
 
 ifneq ($(wildcard /usr/include/newt.h),)
 	MODULES+=zttool
-	echo 'f none opt/sbin/zttool=$TOP/zttool 0755 root bin' >>SVzaptel/prototype_com
+	echo 'f none opt/sbin/zttool=../zttool 0755 root bin' >>SVzaptel/prototype_com
 endif
 MODULES+= timertest ztmonitor package
 
@@ -127,7 +127,7 @@ timertest: timertest.o
 	$(CC) -o timertest timertest.o
 
 zttool.o: zttool.c
-	$(CC) $(DEBUG) -DSOLARIS $(OPTIMIZE) -c -I/opt/csw/include -I/usr/include zttool.c
+	$(CC) $(DEBUG) -DSOLARIS $(OPTIMIZE) -I. -c -I/opt/csw/include -I/usr/include zttool.c
 
 zttool: zttool.o
 	$(CC) -o zttool zttool.o -L/opt/csw/lib -R/opt/csw/lib -lnewt
