@@ -1,9 +1,9 @@
-LIBS = -L/opt/csw/lib -R/opt/csw/lib -lslang -ldl #-lefence
-SHLIBS = -L/opt/csw/lib -R/opt/csw/lib -lslang -dl 
+LIBS = -L/opt/csw/lib -R/opt/csw/lib -lslang -lm -ldl #-lefence
+SHLIBS = -L/opt/csw/lib -R/opt/csw/lib -lslang -lm -dl -lc  
 LIBTCL = -ltcl8.4
 
 GPM_SUPPORT=@gpm_support@
-CFLAGS = $(RPM_OPT_FLAGS) -Wall  -D_GNU_SOURCE -g -O2 -DUTF8 -fPIC -I/opt/csw/include
+CFLAGS = $(RPM_OPT_FLAGS) -I/opt/csw/include -Wall  -D_GNU_SOURCE -g -O2 -DUTF8 -fPIC -I/usr/include/slang
 
 SHLIBFLAGS= 
 VERSION = 0.52.1
@@ -14,7 +14,7 @@ PYTHONVERS = python2.4
 
 WHIPTCLSO=whiptcl.so
 
-PROGS = test whiptail testgrid testtree showchars showkey
+PROGS = test whiptail $(WHIPTCLSO) testgrid testtree showchars showkey
 TESTOBJS = test.o
 NDIALOGOBJS = whiptail.o dialogboxes.o
 WHIPTCLOBJS = whiptcl.o dialogboxes.o
@@ -76,7 +76,7 @@ _snackmodule.so:   snackmodule.c $(LIBNEWTSH)
 	done
 
 whiptail: $(NDIALOGOBJS) $(LIBNEWTSH)
-	$(CC) -g -o whiptail $(NDIALOGOBJS) -L . -lnewt $(LIBS) -lpopt -lintl
+	$(CC) -g -o whiptail $(NDIALOGOBJS) -L . -lnewt $(LIBS) -lpopt
 
 whiptcl.so: $(WHIPTCLOBJS) $(LIBNEWTSH)
 	$(CC) -shared $(SHCFLAGS) -o whiptcl.so $(WHIPTCLOBJS) -L . -lnewt  $(LIBTCL) -lslang -lpopt -lm
