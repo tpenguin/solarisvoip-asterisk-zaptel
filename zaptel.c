@@ -5433,8 +5433,6 @@ static  struct modlinkage modlinkage = {
     { &modldrv, NULL, NULL, NULL }
 };
 
-static int global_sticky = 0;
-
 int _init(void)
 {
   int ret;
@@ -5465,8 +5463,6 @@ int _fini(void)
 {
     int ret;
 
-	if (global_sticky == 0) return EBUSY;
-	
     /*
      * If mod_remove() is successful, we destroy our global mutex
      */
@@ -5605,7 +5601,6 @@ static int zt_init(dev_info_t *dip) {
 	for (x=0; x<ZT_DEV_CHAN_COUNT; x++)
 		chan_map[x] = -1;
 
-	global_sticky = 1;
 	return res;
 }
 
