@@ -2427,7 +2427,11 @@ static int wctdm_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 		return DDI_FAILURE;
 	
 	state->dev = dip;
-	pci_config_setup(state->dev, &state->pci_conf_handle);
+	if (pci_config_setup(state->dev, &state->pci_conf_handle) != DDI_SUCCESS) {
+		cmn_err(CE_CONT, "wctdm%d: attach, failed to run pci_config_setup", instance);
+		ddi_soft_state_free(wctdmstatep, instance);
+		return DDI_FAILURE;
+	}
 
 	/*
 	debug = ddi_prop_get_int(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
