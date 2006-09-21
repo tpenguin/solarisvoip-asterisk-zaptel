@@ -447,16 +447,6 @@ static inline void wctdm_transmitprep(struct wctdm *wc, unsigned char ints)
 	for (x=0;x<ZT_CHUNKSIZE;x++) {
 		/* Send a sample, as a 32-bit word */
 		writechunk[x] = 0;
-#ifndef __BIG_ENDIAN
-                if (wc->cardflag & (1 << 3))
-                        writechunk[x] |= (wc->chans[3].writechunk[x]);
-                if (wc->cardflag & (1 << 2))
-                        writechunk[x] |= (wc->chans[2].writechunk[x] << 8);
-                if (wc->cardflag & (1 << 1))
-                        writechunk[x] |= (wc->chans[1].writechunk[x] << 16);
-                if (wc->cardflag & (1 << 0))
-                        writechunk[x] |= (wc->chans[0].writechunk[x] << 24);
-#else
                 if (wc->cardflag & (1 << 3))
                         writechunk[x] |= (wc->chans[3].writechunk[x] << 24);
                 if (wc->cardflag & (1 << 2))
@@ -465,7 +455,6 @@ static inline void wctdm_transmitprep(struct wctdm *wc, unsigned char ints)
                         writechunk[x] |= (wc->chans[1].writechunk[x] << 8);
                 if (wc->cardflag & (1 << 0))
                         writechunk[x] |= (wc->chans[0].writechunk[x]);
-#endif
 	}
 
 }
@@ -532,16 +521,6 @@ static inline void wctdm_receiveprep(struct wctdm *wc, unsigned char ints)
 		/* Read is at interrupt address.  Valid data is available at normal offset */
 		readchunk = wc->readchunk;
 	for (x=0;x<ZT_CHUNKSIZE;x++) {
-#ifndef __BIG_ENDIAN
-                if (wc->cardflag & (1 << 3))
-                        wc->chans[3].readchunk[x] = (readchunk[x]) & 0xff;
-                if (wc->cardflag & (1 << 2))
-                        wc->chans[2].readchunk[x] = (readchunk[x] >> 8) & 0xff;
-                if (wc->cardflag & (1 << 1))
-                        wc->chans[1].readchunk[x] = (readchunk[x] >> 16) & 0xff;
-                if (wc->cardflag & (1 << 0))
-                        wc->chans[0].readchunk[x] = (readchunk[x] >> 24) & 0xff;
-#else
                 if (wc->cardflag & (1 << 3))
                         wc->chans[3].readchunk[x] = (readchunk[x] >> 24) & 0xff;
                 if (wc->cardflag & (1 << 2))
@@ -550,7 +529,6 @@ static inline void wctdm_receiveprep(struct wctdm *wc, unsigned char ints)
                         wc->chans[1].readchunk[x] = (readchunk[x] >> 8) & 0xff;
                 if (wc->cardflag & (1 << 0))
                         wc->chans[0].readchunk[x] = (readchunk[x]) & 0xff;
-#endif
 	}
 #ifdef AUDIO_RINGCHECK
 	for (x=0;x<wc->cards;x++)
