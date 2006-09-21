@@ -10,6 +10,7 @@ PKGRM	= pkgrm
 PKGTRANS= pkgtrans
 MKDIR	= mkdir -p
 ISA	= $(shell uname -p)
+ISABITS = $(shell isainfo -b)
 ARCH	= $(shell pkgparam SUNWcsr ARCH)
 PROC	= $(shell uname -m)
 VERSION	= $(shell pkgparam SUNWcsr SUNW_PRODVERS | cut -d/ -f1)
@@ -39,11 +40,14 @@ DEBUG=  # -g -pg -DCONFIG_ZAPATA_DEBUG
 export OPTIMIZE DEBUG
 
 CFLAGS= $(DEBUG) -DSOLARIS -D_KERNEL -DECHO_CAN_MARK2 -I. $(OPTIMIZE)
+ifeq ($(ISABITS),64)
+	CFLAGS+=-m64
+endif
 ifeq ($(ISA),i386)
-	CFLAGS+=-m64 -mcmodel=kernel -mno-red-zone -ffreestanding -nodefaultlibs
+	CFLAGS+=-mcmodel=kernel -mno-red-zone -ffreestanding -nodefaultlibs
 else
 	# -fno-pic -mcmodel=medlow
-	CFLAGS+=-m64 -mno-fpu -ffreestanding -nodefaultlibs -D__BIG_ENDIAN
+	CFLAGS+=-mno-fpu -ffreestanding -nodefaultlibs -D__BIG_ENDIAN
 endif
 
 all:	$(MODULES)
