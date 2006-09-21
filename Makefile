@@ -41,10 +41,13 @@ export OPTIMIZE DEBUG
 
 CFLAGS= $(DEBUG) -DSOLARIS -D_KERNEL -DECHO_CAN_MARK2 -I. $(OPTIMIZE)
 ifeq ($(ISABITS),64)
-	CFLAGS+=-m64
+	CFLAGS+=-m64 
 endif
 ifeq ($(ISA),i386)
-	CFLAGS+=-mcmodel=kernel -mno-red-zone -ffreestanding -nodefaultlibs
+	ifeq ($(ISABITS),64)
+		CFLAGS+=-mcmodel=kernel
+	endif
+	CFLAGS+=-mno-red-zone -ffreestanding -nodefaultlibs
 else
 	# -fno-pic -mcmodel=medlow
 	CFLAGS+=-mno-fpu -ffreestanding -nodefaultlibs -D__BIG_ENDIAN
