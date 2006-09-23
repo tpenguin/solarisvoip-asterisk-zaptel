@@ -86,52 +86,52 @@ static int loopcurrent = 20;
 
 static alpha  indirect_regs[] =
 {
-{0,"DTMF_ROW_0_PEAK",0x55C2},
-{1,"DTMF_ROW_1_PEAK",0x51E6},
-{2,"DTMF_ROW2_PEAK",0x4B85},
-{3,"DTMF_ROW3_PEAK",0x4937},
-{4,"DTMF_COL1_PEAK",0x3333},
-{5,"DTMF_FWD_TWIST",0x0202},
-{6,"DTMF_RVS_TWIST",0x0202},
-{7,"DTMF_ROW_RATIO_TRES",0x0198},
-{8,"DTMF_COL_RATIO_TRES",0x0198},
-{9,"DTMF_ROW_2ND_ARM",0x0611},
-{10,"DTMF_COL_2ND_ARM",0x0202},
-{11,"DTMF_PWR_MIN_TRES",0x00E5},
-{12,"DTMF_OT_LIM_TRES",0x0A1C},
-{13,"OSC1_COEF",0x7B30},
-{14,"OSC1X",0x0063},
-{15,"OSC1Y",0x0000},
-{16,"OSC2_COEF",0x7870},
-{17,"OSC2X",0x007D},
-{18,"OSC2Y",0x0000},
-{19,"RING_V_OFF",0x0000},
-{20,"RING_OSC",0x7EF0},
-{21,"RING_X",0x0160},
-{22,"RING_Y",0x0000},
-{23,"PULSE_ENVEL",0x2000},
-{24,"PULSE_X",0x2000},
-{25,"PULSE_Y",0x0000},
-//{26,"RECV_DIGITAL_GAIN",0x4000},	// playback volume set lower
-{26,"RECV_DIGITAL_GAIN",0x2000},	// playback volume set lower
-{27,"XMIT_DIGITAL_GAIN",0x4000},
-//{27,"XMIT_DIGITAL_GAIN",0x2000},
-{28,"LOOP_CLOSE_TRES",0x1000},
-{29,"RING_TRIP_TRES",0x3600},
-{30,"COMMON_MIN_TRES",0x1000},
-{31,"COMMON_MAX_TRES",0x0200},
-{32,"PWR_ALARM_Q1Q2",0x07C0},
-{33,"PWR_ALARM_Q3Q4",0x2600},
-{34,"PWR_ALARM_Q5Q6",0x1B80},
-{35,"LOOP_CLOSURE_FILTER",0x8000},
-{36,"RING_TRIP_FILTER",0x0320},
-{37,"TERM_LP_POLE_Q1Q2",0x008C},
-{38,"TERM_LP_POLE_Q3Q4",0x0100},
-{39,"TERM_LP_POLE_Q5Q6",0x0010},
-{40,"CM_BIAS_RINGING",0x0C00},
-{41,"DCDC_MIN_V",0x0C00},
-{42,"DCDC_XTRA",0x1000},
-{43,"LOOP_CLOSE_TRES_LOW",0x1000},
+{0,255,"DTMF_ROW_0_PEAK",0x55C2},
+{1,255,"DTMF_ROW_1_PEAK",0x51E6},
+{2,255,"DTMF_ROW2_PEAK",0x4B85},
+{3,255,"DTMF_ROW3_PEAK",0x4937},
+{4,255,"DTMF_COL1_PEAK",0x3333},
+{5,255,"DTMF_FWD_TWIST",0x0202},
+{6,255,"DTMF_RVS_TWIST",0x0202},
+{7,255,"DTMF_ROW_RATIO_TRES",0x0198},
+{8,255,"DTMF_COL_RATIO_TRES",0x0198},
+{9,255,"DTMF_ROW_2ND_ARM",0x0611},
+{10,255,"DTMF_COL_2ND_ARM",0x0202},
+{11,255,"DTMF_PWR_MIN_TRES",0x00E5},
+{12,255,"DTMF_OT_LIM_TRES",0x0A1C},
+{13,0,"OSC1_COEF",0x7B30},
+{14,1,"OSC1X",0x0063},
+{15,2,"OSC1Y",0x0000},
+{16,3,"OSC2_COEF",0x7870},
+{17,4,"OSC2X",0x007D},
+{18,5,"OSC2Y",0x0000},
+{19,6,"RING_V_OFF",0x0000},
+{20,7,"RING_OSC",0x7EF0},
+{21,8,"RING_X",0x0160},
+{22,9,"RING_Y",0x0000},
+{23,255,"PULSE_ENVEL",0x2000},
+{24,255,"PULSE_X",0x2000},
+{25,255,"PULSE_Y",0x0000},
+//{26,13,"RECV_DIGITAL_GAIN",0x4000},	// playback volume set lower
+{26,13,"RECV_DIGITAL_GAIN",0x2000},	// playback volume set lower
+{27,14,"XMIT_DIGITAL_GAIN",0x4000},
+//{27,14,"XMIT_DIGITAL_GAIN",0x2000},
+{28,15,"LOOP_CLOSE_TRES",0x1000},
+{29,16,"RING_TRIP_TRES",0x3600},
+{30,17,"COMMON_MIN_TRES",0x1000},
+{31,18,"COMMON_MAX_TRES",0x0200},
+{32,19,"PWR_ALARM_Q1Q2",0x07C0},
+{33,20,"PWR_ALARM_Q3Q4",0x2600},
+{34,21,"PWR_ALARM_Q5Q6",0x1B80},
+{35,22,"LOOP_CLOSURE_FILTER",0x8000},
+{36,23,"RING_TRIP_FILTER",0x0320},
+{37,24,"TERM_LP_POLE_Q1Q2",0x008C},
+{38,25,"TERM_LP_POLE_Q3Q4",0x0100},
+{39,26,"TERM_LP_POLE_Q5Q6",0x0010},
+{40,27,"CM_BIAS_RINGING",0x0C00},
+{41,64,"DCDC_MIN_V",0x0C00},
+{42,255,"DCDC_XTRA",0x1000},
+{43,66,"LOOP_CLOSE_TRES_LOW",0x1000},
 };
 
 static struct fxo_mode {
@@ -285,6 +285,7 @@ static struct fxo_mode {
 #define OHT_TIMER		6000	/* How long after RING to retain OHT */
 
 #define FLAG_DOUBLE_CLOCK	(1 << 0)
+#define FLAG_3215		(1 << 0)
 
 #define NUM_CARDS 4
 
@@ -322,7 +323,7 @@ struct wctdm {
 	int intcount;
 	int dead;
 	int pos;
-	int flags;
+	int flags[NUM_CARDS];
 	int freeregion;
 	int alt;
 	int curcard;
@@ -431,6 +432,18 @@ static char *opermode = "FCC";
 static int fxshonormode = 0;
 
 static int wctdm_init_proslic(struct wctdm *wc, int card, int fast , int manual, int sane);
+
+static unsigned char translate_3215(unsigned char address)
+{
+	int x;
+	for (x=0;x<sizeof(indirect_regs)/sizeof(indirect_regs[0]);x++) {
+		if (indirect_regs[x].address == address) {
+			address = indirect_regs[x].altaddr;
+			break;
+		}
+	}
+	return address;
+}
 
 static inline void wctdm_transmitprep(struct wctdm *wc, unsigned char ints)
 {
@@ -729,6 +742,12 @@ static int wctdm_proslic_setreg_indirect(struct wctdm *wc, int card, unsigned ch
 {
 	unsigned long flags;
 	int res = -1;
+	/* translate 3215 addresses */
+	if (wc->flags[card] & FLAG_3215) {
+		address = translate_3215(address);
+		if (address == 255)
+			return 0;
+	}
 	spin_lock_irqsave(&wc->lock, flags);
 	if(!__wait_access(wc, card)) {
 		__wctdm_setreg(wc, card, IDA_LO,(unsigned char)(data & 0xFF));
@@ -745,6 +764,12 @@ static int wctdm_proslic_getreg_indirect(struct wctdm *wc, int card, unsigned ch
 	unsigned long flags;
 	int res = -1;
 	char *p=NULL;
+	/* translate 3215 addresses */
+	if (wc->flags[card] & FLAG_3215) {
+		address = translate_3215(address);
+		if (address == 255)
+			return 0;
+	}
 	spin_lock_irqsave(&wc->lock, flags);
 	if (!__wait_access(wc, card)) {
 		__wctdm_setreg(wc, card, IAA, address);
@@ -790,7 +815,7 @@ static int wctdm_proslic_verify_indirect_regs(struct wctdm *wc, int card)
 		}
 		initial= indirect_regs[i].initial;
 
-		if ( j != initial )
+		if ( j != initial && (!(wc->flags[card] & FLAG_3215) || (indirect_regs[i].altaddr != 255)) )
 		{
 			 printk("!!!!!!! %s  iREG %X = %X  should be %X\n",
 				indirect_regs[i].name,indirect_regs[i].address,j,initial );
@@ -1136,9 +1161,14 @@ static int wctdm_proslic_insane(struct wctdm *wc, int card)
 		/* SLIC not loaded */
 		return -1;
 	}
-	if ((blah & 0xf) < 3) {
+	if ((blah & 0xf) < 2) {
 		printk("ProSLIC 3210 version %d is too old\n", blah & 0xf);
 		return -1;
+	}
+
+	if ((blah & 0xf) == 2) {
+		/* ProSLIC 3215, not a 3210 */
+		wc->flags[card] |= FLAG_3215;
 	}
 
 	blah = wctdm_getreg(wc, card, 8);
@@ -1445,7 +1475,8 @@ static int wctdm_init_voicedaa(struct wctdm *wc, int card, int fast, int manual,
 		       wctdm_getreg(wc, card, 11) >> 4,
 		       (wctdm_getreg(wc, card, 13) >> 2) & 0xf);
 	/* Enable on-hook line monitor */
-	wctdm_setreg(wc, card, 5, 0x08);
+	wctdm_setreg(wc, card, 5, 0x09);
+	wc->mod.fxo.offhook[card] = 1;
 	return 0;
 		
 }
@@ -1803,8 +1834,8 @@ static int wctdm_initialize(struct wctdm *wc)
 	wc->span.deflaw = ZT_LAW_MULAW;
 	for (x=0;x<wc->cards;x++) {
 		sprintf(wc->chans[x].name, "WCTDM/%d/%d", wc->pos, x);
-		wc->chans[x].sigcap = ZT_SIG_FXOKS | ZT_SIG_FXOLS | ZT_SIG_FXOGS | ZT_SIG_SF | ZT_SIG_EM;
-		wc->chans[x].sigcap |= ZT_SIG_FXSKS | ZT_SIG_FXSLS | ZT_SIG_SF;
+		wc->chans[x].sigcap = ZT_SIG_FXOKS | ZT_SIG_FXOLS | ZT_SIG_FXOGS | ZT_SIG_SF | ZT_SIG_EM | ZT_SIG_CLEAR;
+		wc->chans[x].sigcap |= ZT_SIG_FXSKS | ZT_SIG_FXSLS | ZT_SIG_SF | ZT_SIG_CLEAR;
 		wc->chans[x].chanpos = x+1;
 		wc->chans[x].pvt = wc;
 	}
@@ -1833,9 +1864,9 @@ static void wctdm_post_initialize(struct wctdm *wc)
 	for (x=0;x<wc->cards;x++) {
 		if (wc->cardflag & (1 << x)) {
 			if (wc->modtype[x] == MOD_TYPE_FXO)
-				wc->chans[x].sigcap = ZT_SIG_FXSKS | ZT_SIG_FXSLS | ZT_SIG_SF;
+				wc->chans[x].sigcap = ZT_SIG_FXSKS | ZT_SIG_FXSLS | ZT_SIG_SF | ZT_SIG_CLEAR;
 			else
-				wc->chans[x].sigcap = ZT_SIG_FXOKS | ZT_SIG_FXOLS | ZT_SIG_FXOGS | ZT_SIG_SF | ZT_SIG_EM;
+				wc->chans[x].sigcap = ZT_SIG_FXOKS | ZT_SIG_FXOLS | ZT_SIG_FXOGS | ZT_SIG_SF | ZT_SIG_EM | ZT_SIG_CLEAR;
 		}
 	}
 }
@@ -2048,7 +2079,7 @@ static int wctdm_init_one(struct wctdm *wc)
 
 		wc->pos = x;
 		wc->variety = d->name;
-		wc->flags = d->flags;
+		wc->flags[x] = d->flags;
 
 		/* Allocate enough memory for two zt chunks, receive and transmit.  Each sample uses
 		   32 bits.  Allocate an extra set just for control too */
