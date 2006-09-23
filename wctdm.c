@@ -1475,8 +1475,8 @@ static int wctdm_init_voicedaa(struct wctdm *wc, int card, int fast, int manual,
 		       wctdm_getreg(wc, card, 11) >> 4,
 		       (wctdm_getreg(wc, card, 13) >> 2) & 0xf);
 	/* Enable on-hook line monitor */
-	wctdm_setreg(wc, card, 5, 0x09);
-	wc->mod.fxo.offhook[card] = 1;
+	wctdm_setreg(wc, card, 5, 0x08);
+	/* wc->mod.fxo.offhook[card] = 1; */
 	return 0;
 		
 }
