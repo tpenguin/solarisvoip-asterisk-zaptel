@@ -35,7 +35,7 @@ struct pci_device_id {
                           ddi_io_put8(wc->devhandle, a+2, ((b>>16) & 255)); \
                           ddi_io_put8(wc->devhandle, a+3, ((b>>24) & 255)); }
 #else
-#define outl(b,a)       ddi_io_put32(wc->devhandle, a, b)
+#define outl(b,a)       ddi_io_put32(wc->devhandle, (uint32_t)a, b)
 #endif
 
 #define copy_from_user(dst,src,c) ddi_copyin(src,dst,c,mode)
