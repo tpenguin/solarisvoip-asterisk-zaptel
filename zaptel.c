@@ -152,7 +152,7 @@ static inline unsigned int crc_ccitt_byte(unsigned int crc, const unsigned char 
         return (crc >> 8) ^ fcstab[(crc ^ c) & 0xff];
 }
 
-static int debug = 0;
+static int debug = 1;
 
 /* states for transmit signalling */
 typedef enum {ZT_TXSTATE_ONHOOK,ZT_TXSTATE_OFFHOOK,ZT_TXSTATE_START,
@@ -5541,11 +5541,8 @@ static int zt_init(dev_info_t *dip) {
 	int res = DDI_SUCCESS;
 	int x;
 
-	debug = ddi_prop_get_int(DDI_DEV_T_ANY, dip, DDI_PROP_DONTPASS,
-		"debug-level", 0);
-		
 	instance = ddi_get_instance(dip);
-	/* cmn_err(CE_CONT, "zaptel%d: attach", instance); */
+	if (debug) cmn_err(CE_CONT, "zaptel%d: attach", instance); 
 
 	if (instance != 0)
 	{
@@ -5582,7 +5579,7 @@ static int zt_init(dev_info_t *dip) {
 	}
 
 	/* do not allow us to become unloaded automatically */
-	if (ddi_prop_update_int(makedevice(DDI_MAJOR_T_UNKNOWN, instance), dip, "ddi-no-autodetach", 1) == -1) {
+	if (ddi_prop_update_int(makedevice(DDI_MAJOR_T_UNKNOWN, instance), dip, "ddi-no-autodetach", 1) == DDI_FAILURE) {
 		cmn_err(CE_WARN, "!updating ddi-no-autodetach failed");
 		return DDI_FAILURE;
 	}
