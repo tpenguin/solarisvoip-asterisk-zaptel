@@ -2,6 +2,7 @@
 
 typedef struct {
 	unsigned char address;
+	unsigned char altaddr;
 	char *name;
 	unsigned short initial;
 } alpha;
