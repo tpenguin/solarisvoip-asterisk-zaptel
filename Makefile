@@ -182,10 +182,11 @@ installtdm: wctdm
 	-rem_drv wctdm
 	add_drv -i '"pcib100,1" "pcib100,3"' -v -f wctdm
 
-debug: zaptel wctdm
-	-rem_drv wctdm
-	rem_drv zaptel
-	cp zaptel /kernel/drv/sparcv9
+debug: zaptel
+	rm -f /usr/kernel/drv/sparcv9/zaptel
+	ln -s /tmp/zaptel /usr/kernel/drv/sparcv9/zaptel
+	-rem_drv zaptel
+	cp zaptel /tmp
 	add_drv -f -v zaptel
 	
 installte11xp: wcte11xp
