@@ -3240,7 +3240,7 @@ static int zt_chanandpseudo_ioctl(dev_t dev, int cmd, intptr_t data, int mode, c
 		/* if no span, just return with value */
 		if (!chan->span) return rv;
 		if ((rv == ENOTTY) && chan->span->ioctl) 
-			rv = chan->span->ioctl(chan, cmd, data);
+			rv = chan->span->ioctl(chan, cmd, data, 0);
 		return rv;
 		
 	}

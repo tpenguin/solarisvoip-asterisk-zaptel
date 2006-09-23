@@ -1189,7 +1189,7 @@ struct zt_span {
 	int (*close)(struct zt_chan *chan);
 	
 	/* Opt: IOCTL */
-	int (*ioctl)(struct zt_chan *chan, unsigned int cmd, unsigned long data);
+	int (*ioctl)(struct zt_chan *chan, unsigned int cmd, unsigned long data, int mode);
 	
 	/* Okay, now we get to the signalling.  You have several options: */
 
