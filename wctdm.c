@@ -59,7 +59,7 @@
 #ifdef SOLARIS
 char _depends_on[] = "drv/zaptel";
 
-static void *wctdmstatep;
+static void *wctdmstatep = NULL;
 #endif
 
 /*
@@ -149,7 +149,7 @@ static struct fxo_mode {
 	int ring_x;
 } fxo_modes[] =
 {
-	{ "FCC", 0, 0, 0, 0, 0, 0x3, 0, 0 }, 	/* US, Canada */
+	{ "FCC", 0, 0, 0, 0, 0, 0x3, 0, 0, 0, 0 }, 	/* US, Canada */
 	{ "TBR21", 0, 0, 0, 0, 1, 0x3, 0, 0x2, 0x7e6c, 0x023a },
 										/* Austria, Belgium, Denmark, Finland, France, Germany, 
 										   Greece, Iceland, Ireland, Italy, Luxembourg, Netherlands,
@@ -422,7 +422,7 @@ static void wctdm_release(struct wctdm *wc);
 
 static int battdebounce = DEFAULT_BATT_DEBOUNCE;
 static int battthresh = DEFAULT_BATT_THRESH;
-static int debug = 0;
+static int debug = 1;
 static int robust = 0;
 static int timingonly = 0;
 static int lowpower = 0;
@@ -1254,7 +1254,7 @@ static int wctdm_powerup_proslic(struct wctdm *wc, int card, int fast)
 		if (retries++ > 5) {
 			break;
 		}
-		drv_usecwait(100000);
+		drv_usecwait(120000);
 	}
 
 	if (vbat < 0xc0) {
@@ -1413,26 +1413,33 @@ static int wctdm_init_voicedaa(struct wctdm *wc, int card, int fast, int manual,
 {
 	unsigned char reg16=0, reg26=0, reg30=0, reg31=0;
 	long newjiffies;
+
+	if (debug) cmn_err(CE_CONT, "init_voicedaa");
 	wc->modtype[card] = MOD_TYPE_FXO;
 	/* Sanity check the ProSLIC */
 	reset_spi(wc, card);
+	if (debug) cmn_err(CE_CONT, "reset_spi");
+
 	if (!sane && wctdm_voicedaa_insane(wc, card))
 		return -2;
 
 	/* Software reset */
 	wctdm_setreg(wc, card, 1, 0x80);
+	if (debug) cmn_err(CE_CONT, "wctdm_setreg for software reset");
 
 	/* Wait just a bit */
-	drv_usecwait(10000);
+	drv_usecwait(40000);
 
 	/* Enable PCM, ulaw */
 	wctdm_setreg(wc, card, 33, 0x28);
+	if (debug) cmn_err(CE_CONT, "enable pcm - ulaw");
 
 	/* Set On-hook speed, Ringer impedence, and ringer threshold */
 	reg16 |= (fxo_modes[_opermode].ohs << 6);
 	reg16 |= (fxo_modes[_opermode].rz << 1);
 	reg16 |= (fxo_modes[_opermode].rt);
 	wctdm_setreg(wc, card, 16, reg16);
+	if (debug) cmn_err(CE_CONT, "set on-hook speed, ringer impedence, and ringer threshold");
 	
 	/* Set DC Termination:
 	   Tip/Ring voltage adjust, minimum operational current, current limitation */
@@ -1440,6 +1447,7 @@ static int wctdm_init_voicedaa(struct wctdm *wc, int card, int fast, int manual,
 	reg26 |= (fxo_modes[_opermode].mini << 4);
 	reg26 |= (fxo_modes[_opermode].ilim << 1);
 	wctdm_setreg(wc, card, 26, reg26);
+	if (debug) cmn_err(CE_CONT, "set DC termination");
 
 	/* Set AC Impedence */
 	reg30 = (fxo_modes[_opermode].acim);
@@ -1461,9 +1469,9 @@ static int wctdm_init_voicedaa(struct wctdm *wc, int card, int fast, int manual,
 
 	/* Wait 1000ms for ISO-cap to come up */
 	int retries = 10;
-	while((retries > 0) && !(wctdm_getreg(wc, card, 11) & 0xf0)) {
+	while ((retries > 0) && !(wctdm_getreg(wc, card, 11) & 0xf0)) {
 		--retries;
-		drv_usecwait(100000);
+		drv_usecwait(120000);
 	}
 
 	if (!(wctdm_getreg(wc, card, 11) & 0xf0)) {
@@ -1474,11 +1482,11 @@ static int wctdm_init_voicedaa(struct wctdm *wc, int card, int fast, int manual,
 		printk("ISO-Cap is now up, line side: %02x rev %02x\n", 
 		       wctdm_getreg(wc, card, 11) >> 4,
 		       (wctdm_getreg(wc, card, 13) >> 2) & 0xf);
+
 	/* Enable on-hook line monitor */
 	wctdm_setreg(wc, card, 5, 0x08);
-	/* wc->mod.fxo.offhook[card] = 1; */
-	return 0;
-		
+	if (debug) cmn_err(CE_CONT, "enabled on-hook line monitor");
+	return (0);
 }
 
 static int wctdm_init_proslic(struct wctdm *wc, int card, int fast, int manual, int sane)
@@ -1621,6 +1629,10 @@ static int wctdm_init_proslic(struct wctdm *wc, int card, int fast, int manual, 
     wctdm_setreg(wc, card, 20, 0xff);
     wctdm_setreg(wc, card, 73, 0x04);
 	if (fxshonormode) {
+		if (debug) {
+			cmn_err(CE_CONT, "_opermode = %d\n", _opermode);
+			cmn_err(CE_CONT, "fxo_modes[].acim = %d\n", fxo_modes[_opermode].acim);
+		}
 		fxsmode = acim2tiss[fxo_modes[_opermode].acim];
 		wctdm_setreg(wc, card, 10, 0x08 | fxsmode);
 		if (fxo_modes[_opermode].ring_osc)
@@ -2176,7 +2188,7 @@ static int wctdm_init_one(struct wctdm *wc)
 		
 		spin_lock_init(&wc->lock);
 		if (debug) cmn_err(CE_CONT, "Mutex Initialized\n");
-		
+/*		
 		if (ddi_add_intr(wc->dev, 0, 0, 0, 
 				wctdm_interrupt, (caddr_t)wc) != DDI_SUCCESS) {
 							cmn_err(CE_CONT, "wctdm: Unable to request IRQ\n");
@@ -2185,7 +2197,7 @@ static int wctdm_init_one(struct wctdm *wc)
 							return DDI_FAILURE;
 					}
 		if (debug) cmn_err(CE_CONT, "Interrupt Handler Installed.\n");
-		
+*/		
 		if (wctdm_hardware_init(wc)) {
 			unsigned char x;
 			/* Set Reset Low */
@@ -2214,19 +2226,28 @@ static int wctdm_init_one(struct wctdm *wc)
 		wctdm_start_dma(wc);
 		if (debug) cmn_err(CE_CONT, "wctdm_start_dma OK\n");
 
+                if (ddi_add_intr(wc->dev, 0, 0, 0,
+                                wctdm_interrupt, (caddr_t)wc) != DDI_SUCCESS) {
+                                                        cmn_err(CE_CONT, "wctdm: Unable to request IRQ\n");
+                                                        (void) ddi_dma_mem_free(&wc->dma_acc_handle);
+                                                        ddi_dma_free_handle(&wc->dma_handle);
+                                                        return DDI_FAILURE;
+                                        }
+                if (debug) cmn_err(CE_CONT, "Interrupt Handler Installed.\n");
+
 		printk("Found a Wildcard TDM: %s (%d modules)\n", wc->variety, wc->cards);
 		res = 0;
 	}
 	if (debug) cmn_err(CE_CONT, "leaving init_one\n");
-	return res;
+	return (res);
 }
 
 static void wctdm_release(struct wctdm *wc)
 {
 	zt_unregister(&wc->span);
         (void) ddi_dma_mem_free(&wc->dma_acc_handle);
-        ddi_dma_free_handle(&wc->dma_handle);
-	printk("Freed a Wildcard\n");
+        (void) ddi_dma_free_handle(&wc->dma_handle);
+	cmn_err(CE_CONT, "Freed a Wildcard\n");
 }
 
 static void wctdm_remove_one(struct wctdm *wc)
@@ -2330,10 +2351,12 @@ static  struct modlinkage modlinkage = {
 int _init(void)
 {
 	int ret;
-	
+
+	wctdmstatep = NULL;
 	ret = ddi_soft_state_init(&wctdmstatep, sizeof(struct wctdm), WC_MAX_IFACES);
 	if (ret != 0)
 	{
+		cmn_err(CE_CONT, "wctdm: ddi_soft_state_init FAILED: %d", ret);
 		return ret;
 	}
 	
@@ -2550,6 +2573,8 @@ static int wctdm_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
 
 static int wctdm_property_update(dev_info_t *dip)
 {
+	return DDI_SUCCESS;
+
 	if (ddi_prop_update_int(DDI_DEV_T_ANY, dip, "ddi-no-autodetach", 1) == -1) {
 		cmn_err(CE_WARN, "!updating ddi-no-autodetach failed");
 		return DDI_FAILURE;
