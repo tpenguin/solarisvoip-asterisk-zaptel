@@ -293,7 +293,7 @@ static struct zt_zone *tone_zones[ZT_TONE_ZONE_MAX];
 
 #define NUM_SIGS	10	
 
-static void *ztsoftstatep;
+static void *ztsoftstatep = NULL;
 
 typedef struct zt_soft_state {
   dev_info_t            *dip;
@@ -5173,6 +5173,10 @@ int zt_transmit(struct zt_span *span)
 	int x,y,z;
 	unsigned long flags;
 
+	if (span == NULL) {
+		cmn_err(CE_CONT, "zt_transmit: span is null");
+		return (0);
+	}
 #if 1
 	for (x=0;x<span->channels;x++) {
 		mutex_enter(&span->chans[x].lock);
@@ -5240,6 +5244,10 @@ int zt_receive(struct zt_span *span)
 	int x,y,z;
 	unsigned long flags, flagso;
 
+	if (span == NULL) {
+		cmn_err(CE_CONT, "zt_receive: span is null");
+		return (0);
+	}
 #if 1
 #ifdef CONFIG_ZAPTEL_WATCHDOG
 	span->watchcounter--;
@@ -5436,13 +5444,16 @@ static  struct modlinkage modlinkage = {
 int _init(void)
 {
   int ret;
+  size_t softstateSize = sizeof(zt_soft_state_t);
 
+  ztsoftstatep = NULL;
   ret = ddi_soft_state_init(&ztsoftstatep,
-                              sizeof(struct zt_soft_state),
-                              1);
+                              softstateSize,
+                              4);
   if (ret != 0)
   {
-    return ret;
+    cmn_err(CE_CONT, "zaptel: ddi_soft_state_init failed: %d - size=%d p=%p", ret, softstateSize, &ztsoftstatep);
+    return DDI_FAILURE;
   }
 
   if ((ret = mod_install(&modlinkage)) != 0) {
@@ -5450,7 +5461,7 @@ int _init(void)
     return DDI_FAILURE;
   }
 
-  /* cmn_err(CE_CONT, "zaptel: _init SUCCESS"); */
+  if (debug) cmn_err(CE_CONT, "zaptel: _init SUCCESS");
   return DDI_SUCCESS;
 }
 
@@ -5469,7 +5480,7 @@ int _fini(void)
     if ((ret = mod_remove(&modlinkage)) == 0) {
         ddi_soft_state_fini(&ztsoftstatep);
     }
-    /* cmn_err(CE_CONT, "zaptel: _fini %s", ret == DDI_SUCCESS ? "SUCCESS" : "FAILURE"); */
+    if (debug) cmn_err(CE_CONT, "zaptel: _fini %s", ret == DDI_SUCCESS ? "SUCCESS" : "FAILURE");
     return ret;
 }
 
@@ -5578,12 +5589,6 @@ static int zt_init(dev_info_t *dip) {
 		return DDI_FAILURE;
 	}
 
-	/* do not allow us to become unloaded automatically */
-	if (ddi_prop_update_int(makedevice(DDI_MAJOR_T_UNKNOWN, instance), dip, "ddi-no-autodetach", 1) == DDI_FAILURE) {
-		cmn_err(CE_WARN, "!updating ddi-no-autodetach failed");
-		return DDI_FAILURE;
-	}
-	
 	cmn_err(CE_CONT, "Zapata Telephony Interface Registered\n");
 	zt_conv_init();
 	tone_zone_init();
