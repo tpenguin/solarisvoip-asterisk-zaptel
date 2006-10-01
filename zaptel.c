@@ -940,6 +940,11 @@ static void zt_chan_unreg(struct zt_chan *chan)
 	int x;
 	unsigned long flags;
 
+	if (chan == NULL) {
+		cmn_err(CE_CONT, "zt_chan_unreg: chan is null\n");
+		return;
+	}
+
 	rw_enter(&chan_lock, RW_WRITER);
 	if (chan->flags & ZT_FLAG_REGISTERED) {
 		chans[chan->channo] = NULL;
@@ -5443,8 +5448,17 @@ static  struct modlinkage modlinkage = {
 
 int _init(void)
 {
-  int ret;
+  int ret, idx;
   size_t softstateSize = sizeof(zt_soft_state_t);
+
+  for (idx=0; idx<ZT_MAX_CHANNELS; idx++)
+	chans[idx] = 0;
+  for (idx=0; idx<ZT_MAX_SPANS; idx++)
+	spans[idx] = 0;
+  for (idx=0; idx<ZT_DEV_CHAN_COUNT; idx++)
+	chan_map[idx] = 0;
+  for (idx=0; idx<ZT_DEV_TIMER_COUNT; idx++)
+	chan_timer_map[idx] = 0;
 
   ztsoftstatep = NULL;
   ret = ddi_soft_state_init(&ztsoftstatep,
