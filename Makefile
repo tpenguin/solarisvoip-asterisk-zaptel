@@ -113,7 +113,7 @@ ztcfg.o: ztcfg.c
 	$(CC) $(DEBUG) -DSOLARIS -DECHO_CAN_MARK2 -I. $(OPTIMIZE) -c -DBUILDING_TONEZONE -DZAPTEL_CONFIG=\"/opt/etc/zaptel.conf\" ztcfg.c
 
 ztcfg: ztcfg.o
-	$(CC) -o ztcfg ztcfg.o -L. -ltonezone -lm
+	$(CC) -o ztcfg ztcfg.o -L. -R/opt/lib -L/opt/lib -ltonezone -lm
 
 zttest.o: zttest.c
 	$(CC) $(DEBUG) -DSOLARIS -DECHO_CAN_MARK2 -I. $(OPTIMIZE) -c -DBUILDING_TONEZONE zttest.c

@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<!-- Created by JWB 10/14/2006 -->
+
+<service_bundle type='manifest' name='zaptel'>
+
+<service
+	name='application/voip/zaptel'
+	type='service'
+	version='1'>
+
+	<single_instance />
+
+	<instance name='default' enabled='false'>
+		<dependent
+			name='zaptel-asterisk'
+			grouping='optional_all'
+			restart_on='none'>
+			<service_fmri value='svc:/application/voip/server' />
+		</dependent>
+
+		<exec_method
+			type='method'
+			name='start'
+			exec='/opt/sbin/ztcfg -v'
+			timeout_seconds='60' />
+
+		<exec_method
+			type='method'
+			name='stop'
+			exec=':true'
+			timeout_seconds='60' />
+
+		<exec_method
+			type='method'
+			name='refresh'
+			exec='/opt/sbin/ztcfg -v'
+			timeout_seconds='60' />
+
+		<property_group name='startd' type='framework'>
+			<propval name='duration' type='astring'
+				value='transient' />
+		</property_group>
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+				Asterisk PBX Zaptel Driver
+			</loctext>
+		</common_name>
+	</template>
+	</instance>
+
+</service>
+
+</service_bundle>
