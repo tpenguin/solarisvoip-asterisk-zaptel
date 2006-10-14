@@ -5605,11 +5605,17 @@ static int zt_init(dev_info_t *dip) {
 
 	cmn_err(CE_CONT, "Zapata Telephony Interface Registered\n");
 	zt_conv_init();
+	if (debug) cmn_err(CE_CONT, "zt_conv_init\n");
 	tone_zone_init();
+	if (debug) cmn_err(CE_CONT, "tone_zone_init\n");
 	fasthdlc_precalc();
+	if (debug) cmn_err(CE_CONT, "fasthdlc_precalc\n");
 	rotate_sums();
+	if (debug) cmn_err(CE_CONT, "rotate_sums\n");
 	rw_init(&chan_lock, NULL, RW_DRIVER, NULL);
+	if (debug) cmn_err(CE_CONT, "rw_init chan_lock\n");
 	rw_init(&zone_lock, NULL, RW_DRIVER, NULL);
+	if (debug) cmn_err(CE_CONT, "rw_init zone_lock\n");
 #ifdef CONFIG_ZAPTEL_WATCHDOG
 	watchdog_init();
 #endif	
@@ -5617,6 +5623,7 @@ static int zt_init(dev_info_t *dip) {
 	for (x=0; x<ZT_DEV_CHAN_COUNT; x++)
 		chan_map[x] = -1;
 
+	if (debug) cmn_err(CE_CONT, "leaving zt_init\n");
 	return res;
 }
 

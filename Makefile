@@ -28,14 +28,14 @@ export VER REV ISA PKGMK PKGADD PKGRM MKDIR ARCH VERSION PKGARCHIVE PKGTRANS
 
 #Tell gcc to optimize the code
 #
-OPTIMIZE=-O6
+OPTIMIZE= # -O6
 ifeq ($(PROC),sun4u)
 OPTIMIZE+=-mcpu=v9
 endif
 
 #Include debug and macro symbols in the executables (-g) and profiling info (-pg)
 #
-DEBUG=  # -g -pg -DCONFIG_ZAPATA_DEBUG
+DEBUG=-g  # -g -pg -DCONFIG_ZAPATA_DEBUG
 
 export OPTIMIZE DEBUG
 
@@ -50,7 +50,7 @@ ifeq ($(ISA),i386)
 	CFLAGS+=-mno-red-zone -ffreestanding -nodefaultlibs
 else
 	# -fno-pic -mcmodel=medlow
-	CFLAGS+=-mno-fpu -ffreestanding -nodefaultlibs -D__BIG_ENDIAN
+	CFLAGS+=-mcmodel=medlow -mno-fpu -fno-pic -fno-strict-aliasing -ffreestanding -nodefaultlibs -D__BIG_ENDIAN
 endif
 
 all:	$(MODULES)
@@ -169,22 +169,22 @@ installeth: ztd-eth
 	ifconfig eri0 modinsert ztd-eth@2
 
 installfxo: wcfxo
-	rm -f /usr/kernel/drv/sparcv9/wcfxo
-	ln -s /tmp/wcfxo /usr/kernel/drv/sparcv9/wcfxo
+	rm -f /kernel/drv/sparcv9/wcfxo
+	ln -s /tmp/wcfxo /kernel/drv/sparcv9/wcfxo
 	cp wcfxo /tmp/
 	-rem_drv wcfxo
 	add_drv -i '"pci8086,3"' -v -f wcfxo
 
 installtdm: wctdm
-	rm -f /usr/kernel/drv/sparcv9/wctdm
-	ln -s /tmp/wctdm /usr/kernel/drv/sparcv9/wctdm
+	rm -f /kernel/drv/sparcv9/wctdm
+	ln -s /tmp/wctdm /kernel/drv/sparcv9/wctdm
 	cp wctdm /tmp/
 	-rem_drv wctdm
 	add_drv -i '"pcib100,1" "pcib100,3"' -v -f wctdm
 
 debug: zaptel
-	rm -f /usr/kernel/drv/sparcv9/zaptel
-	ln -s /tmp/zaptel /usr/kernel/drv/sparcv9/zaptel
+	rm -f /kernel/drv/sparcv9/zaptel
+	ln -s /tmp/zaptel /kernel/drv/sparcv9/zaptel
 	-rem_drv zaptel
 	cp zaptel /tmp
 	add_drv -f -v zaptel
