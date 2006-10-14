@@ -5471,11 +5471,11 @@ int _init(void)
   }
 
   if ((ret = mod_install(&modlinkage)) != 0) {
-    cmn_err(CE_CONT, "zaptel: _init FAILED");
+    cmn_err(CE_CONT, "zaptel: _init FAILED\n");
     return DDI_FAILURE;
   }
 
-  if (debug) cmn_err(CE_CONT, "zaptel: _init SUCCESS");
+  if (debug) cmn_err(CE_CONT, "zaptel: _init SUCCESS\n");
   return DDI_SUCCESS;
 }
 
@@ -5494,7 +5494,7 @@ int _fini(void)
     if ((ret = mod_remove(&modlinkage)) == 0) {
         ddi_soft_state_fini(&ztsoftstatep);
     }
-    if (debug) cmn_err(CE_CONT, "zaptel: _fini %s", ret == DDI_SUCCESS ? "SUCCESS" : "FAILURE");
+    if (debug) cmn_err(CE_CONT, "zaptel: _fini %s\n", ret == DDI_SUCCESS ? "SUCCESS" : "FAILURE");
     return ret;
 }
 
@@ -5567,7 +5567,7 @@ static int zt_init(dev_info_t *dip) {
 	int x;
 
 	instance = ddi_get_instance(dip);
-	if (debug) cmn_err(CE_CONT, "zaptel%d: attach", instance); 
+	if (debug) cmn_err(CE_CONT, "zaptel%d: attach\n", instance); 
 
 	if (instance != 0)
 	{
