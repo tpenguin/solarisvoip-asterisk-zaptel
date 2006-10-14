@@ -7,6 +7,6 @@ DESC=Base Driver for Zaptel Devices.
 VENDOR=SolarisVoip.com
 HOTLINE=This package is unsupported.
 EMAIL=joe@thrallingpenguin.com
-CLASSES=none
+CLASSES=preserve none
 BASEDIR=/
 MAXINST=9999

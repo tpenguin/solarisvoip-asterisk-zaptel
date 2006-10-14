@@ -29,7 +29,7 @@ f none opt/sbin/ztdiag=$TOP/ztdiag 0755 root bin
 f none opt/sbin/timertest=$TOP/timertest 0755 root bin
 f none opt/sbin/ztmonitor=$TOP/ztmonitor 0755 root bin
 d none opt/etc ? ? ?
-e none opt/etc/zaptel.conf=$TOP/zaptel.conf.sample 0644 root root
+e preserve opt/etc/zaptel.conf=$TOP/zaptel.conf.sample 0644 root root
 f none opt/lib/libpri.so.1.0=$TOP/libpri/libpri.so.1.0 0755 root bin
 s none opt/lib/libpri.so.1=libpri.so.1.0
 s none opt/lib/libpri.so=libpri.so.1.0
