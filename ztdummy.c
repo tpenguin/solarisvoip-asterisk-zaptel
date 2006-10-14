@@ -253,12 +253,6 @@ static int ztdummy_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 		return DDI_FAILURE;
     }
 
-	/* do not allow us to become unloaded automatically */
-	if (ddi_prop_update_int(makedevice(DDI_MAJOR_T_UNKNOWN, instance), dip, "ddi-no-autodetach", 1) == -1) {
-		cmn_err(CE_WARN, "ztdummmy: updating ddi-no-autodetach failed");
-		return DDI_FAILURE;
-	}
-	
 	/*
 	 * Setup a high-resolution timer using an undocumented API in the kernel
 	 *
