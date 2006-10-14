@@ -220,8 +220,3 @@ defaultzone=us
 # # channels they apply to
 # channels=1-4
 
-span=1,1,0,esf,b8zs
-bchan=1-23
-dchan=24
-loadzone=us
-defaultzone=us
