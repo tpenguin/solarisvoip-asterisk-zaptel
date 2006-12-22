@@ -60,6 +60,13 @@ do
 		else
 			drvflags="${BFLAG} ${NFLAG}"
 		fi
+                grep "exclude: drv/zaptel" $BASEDIR/etc/system-nozap 2>&1 >/dev/null
+                if [ $? -ne 0 ]; then
+                    cp $BASEDIR/etc/system $BASEDIR/etc/system-nozap
+                    echo "exclude: drv/zaptel" >>$BASEDIR/etc/system-nozap
+                fi
+                sync
+                sleep 3
 		${ADD_DRV} -v -f ${DRV}
 		if [ $? -ne 0 ]; then
 			echo "postinstall: add_drv $DRV failed\n" >&2
