@@ -727,6 +727,7 @@ void zt_dynamic_unregister(struct zt_dynamic_driver *dri)
 	struct zt_dynamic_driver *cur, *prev=NULL;
 	struct zt_dynamic *z, *zp, *zn;
 	unsigned long flags;
+
 	spin_lock_irqsave(&dlock, flags);
 	cur = drivers;
 	while(cur) {
@@ -769,7 +770,7 @@ static void check_for_red_alarm(void *arg)
 	int alarmchanged = 0;
 	struct zt_dynamic *z;
 	
-	if (debug) cmn_err(CE_CONT, "Checking for Red Alarms.\n");
+	// if (debug) cmn_err(CE_CONT, "Checking for Red Alarms.\n");
 	
 	spin_lock_irqsave(&dlock, flags);
 	z = dspans;
@@ -986,10 +987,18 @@ static int ztdynamic_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
 	/* Try to shutdown any open lines */
 	
     /* Remove high-resolution timer */
+    mutex_enter(&cpu_lock);
     cyclic_remove(ztd->cyclic);
+    mutex_exit(&cpu_lock);
+    if (debug) {
+        cmn_err(CE_CONT, "Removed timer.\n");
+    }
 	
 	/* Remove Mutex */
 	mutex_destroy(&dlock);
+    if (debug) {
+        cmn_err(CE_CONT, "Destroyed mutex dlock\n");
+    }
 
     return DDI_SUCCESS;
 }

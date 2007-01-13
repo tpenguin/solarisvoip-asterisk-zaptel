@@ -43,6 +43,7 @@
 #endif
 
 #include "compat.h"
+#include "ztd-eth.h"
 
 #ifndef ALIGN32
 # define        ALIGN32(x)      (x)
@@ -67,12 +68,12 @@ static spinlock_t zlock;
 #define ETH_P_ZTDETH	0xd00d /* Ethernet Type Field Value */
 
 struct ztdeth_header {
-	unsigned short subaddr;
+	uint16_t subaddr;
 };
 
 static struct ztdeth {
 	unsigned char addr[64];
-	unsigned short subaddr; /* Network byte order */
+	uint16_t subaddr; /* Network byte order */
 	struct zt_span *span;
 	char ethdev[64];
 	struct net_device *dev;
@@ -84,6 +85,9 @@ typedef struct ztdeth_mod_s {
     int mm_muxid;
     queue_t *mm_wq;
     t_uscalar_t mm_sap;
+    uint_t mm_ref;
+    ztdeth_strid_t mm_strid;
+    list_node_t mm_node;
 } ztdeth_mod_t;
 
 typedef struct ztdeth_drv_s {
@@ -94,7 +98,9 @@ typedef struct ztdeth_drv_s {
 } ztdeth_drv_t;
 
 #define MD_ISDRIVER 0x00000001
+#define MM_INLIST   0x00000002
 #define MM_TUNNELIN 0x00000004
+
 
 static dev_info_t *zdeth_dev_info = NULL;
 
@@ -104,6 +110,11 @@ static dev_info_t *zdeth_dev_info = NULL;
 static uint_t ztdeth_max_minors;
 static vmem_t *ztdeth_drv_minors;
 
+/*                                                              
+ * List of streams on which ztdeth is plumbed                                                                
+ */
+static list_t ztdeth_mod_list;
+static kmutex_t ztdeth_mod_lock;
 
 static int zdethdevopen(queue_t *, dev_t *, int, int, cred_t *);
 static int zdethdevclose(queue_t *, int, cred_t *);
@@ -200,7 +211,7 @@ static struct cb_ops zdeth_ops = {
 	nochpoll,	        /* cb_chpoll */
 	ddi_prop_op,        /* cb_prop_op */
 	&zdethmod_strtab,	/* cb_stream */
-	D_NEW | D_MP		/* cb_flag */
+	D_NEW | D_MP | D_MTQPAIR | D_MTOUTPERIM | D_MTOCEXCL | D_MTPUTSHARED		/* cb_flag */
 };
 
 static struct dev_ops zdeth_devops = {
@@ -252,7 +263,7 @@ static struct streamtab zdethmod_strtab = {
 static struct fmodsw fsw = {
 	"ztd-eth", 
     &zdethmod_strtab, 
-    D_NEW | D_MP
+    D_NEW | D_MP | D_MTQPAIR | D_MTOUTPERIM | D_MTOCEXCL | D_MTPUTSHARED
 };
 
 static struct modlstrmod modlstrmod = {
@@ -273,6 +284,7 @@ static int zdeth_attach(dev_info_t *devi, ddi_attach_cmd_t cmd)
 	if (cmd != DDI_ATTACH)
 		return (DDI_FAILURE);
 
+    cmn_err(CE_CONT, "zdeth_attach\n");
     if (ddi_create_minor_node(devi, "ztdeth", S_IFCHR, 0, "ddi_zaptel",
         CLONE_DEV) == DDI_FAILURE) {
         ddi_remove_minor_node(devi, NULL);
@@ -289,8 +301,8 @@ static int zdeth_detach(dev_info_t *devi, ddi_detach_cmd_t cmd)
 {
 	if (cmd != DDI_DETACH)
 		return (DDI_FAILURE);
-	
-	// ASSERT(devi == zdeth_dev_info);
+
+    cmn_err(CE_CONT, "zdeth_detach\n");
 	zt_dynamic_unregister(&ztd_eth);
 	ddi_remove_minor_node(devi, NULL);
 
@@ -316,7 +328,7 @@ static int zdeth_getinfo(dev_info_t *dip, ddi_info_cmd_t infocmd, void *arg,
 	default:
 		break;
 	}
-	return result;
+	return (result);
 }
 
 
@@ -329,14 +341,14 @@ static int zdethdevopen(queue_t *q, dev_t *devp, int oflag, int sflag, cred_t *c
 		result = ENXIO;
 	if (result == 0)
 		qprocson(q);
-	return result;
+	return (result);
 }
 
 static int zdethdevclose(queue_t *q, int flag, cred_t *crp)
 {
     cmn_err(CE_CONT, "devclose!\n");
 	qprocsoff(q);
-	return 0;
+	return (0);
 }
 
 
@@ -427,16 +439,23 @@ static int zdethmodclose(queue_t *rq, int flag, cred_t *crp)
 {
     ztdeth_drv_t *drvp = rq->q_ptr;
 
+    if (drvp == NULL) {
+        qprocsoff(rq);
+        cmn_err(CE_CONT, "zdethmodclose: drvp was NULL\n");
+        return (0);
+    }
+
     if (drvp->md_flags & MD_ISDRIVER) {
         qprocsoff(rq);
-        vmem_free(ztdeth_drv_minors, (void *)(uintptr_t)drvp->md_minor, 1);
+        if (ztdeth_drv_minors != NULL && drvp->md_minor != NULL)
+            vmem_free(ztdeth_drv_minors, (void *)(uintptr_t)drvp->md_minor, 1);
         kmem_free(drvp, sizeof (*drvp));
     } else {
         ztdeth_mod_t *modp = (ztdeth_mod_t *)drvp;
-
         qprocsoff(rq);
         kmem_free(modp, sizeof (*modp));
     }
+
 	if (debug) cmn_err(CE_CONT, "zdethmodclose\n");
 	return (0);
 }
@@ -444,32 +463,53 @@ static int zdethmodclose(queue_t *rq, int flag, cred_t *crp)
 /*
  * Kernel module functions
  */
+static int mod_is_init = 0;
+
 int _init(void)
 {
-    ztdeth_max_minors = 10;
-    ztdeth_drv_minors = vmem_create("ztdeth_minor", (void *)1, 
-                                    ztdeth_max_minors, 1, NULL,
-                                    NULL, NULL, 0, VM_SLEEP | VMC_IDENTIFIER);
-    if (ztdeth_drv_minors == NULL) {
-        return (ENOMEM);
+    if (mod_is_init == 0) {
+        ztdeth_max_minors = 10;
+        ztdeth_drv_minors = vmem_create("ztdeth_minor", (void *)1, 
+                                        ztdeth_max_minors, 1, NULL,
+                                        NULL, NULL, 0, VM_SLEEP | VMC_IDENTIFIER);
+        if (ztdeth_drv_minors == NULL) {
+            return (ENOMEM);
+        }
+        list_create(&ztdeth_mod_list, sizeof (ztdeth_mod_t),
+                    offsetof (ztdeth_mod_t, mm_node));
+        mutex_init(&ztdeth_mod_lock, NULL, MUTEX_DRIVER, NULL);
+        mod_is_init = 1;
     }
-    if (debug) cmn_err(CE_CONT, "Created ztdeth_drv_minors\n");
-	return mod_install(&modlinkage);
+	if (mod_install(&modlinkage) != DDI_SUCCESS) {
+        cmn_err(CE_CONT, "mod_install failed.\n");
+        if (mod_is_init == 1) {
+            vmem_destroy(ztdeth_drv_minors);
+            mutex_destroy(&ztdeth_mod_lock);
+            list_destroy(&ztdeth_mod_list);
+            mod_is_init = 0;
+        }
+        return (DDI_FAILURE);
+    }
+    return (DDI_SUCCESS);
 }
 
 int _fini(void)
 {
     if (debug) cmn_err(CE_CONT, "_fini\n");
-    if (ztdeth_drv_minors != NULL) {
-        vmem_destroy(ztdeth_drv_minors);
+    if (mod_is_init == 1) {
+        if (ztdeth_drv_minors != NULL) {
+            vmem_destroy(ztdeth_drv_minors);
+        }
+        mutex_destroy(&ztdeth_mod_lock);
+        list_destroy(&ztdeth_mod_list);
+        mod_is_init = 0;
     }
-	return mod_remove(&modlinkage);
+	return (mod_remove(&modlinkage));
 }
 
 int _info(struct modinfo *modinfop)
 {
-    if (debug) cmn_err(CE_CONT, "_info\n");
-	return mod_info(&modlinkage, modinfop);
+	return (mod_info(&modlinkage, modinfop));
 }
 
 static void zdethmod_watchproto(queue_t *wq, mblk_t *mp)
@@ -497,7 +537,11 @@ static void zdethmod_watchproto(queue_t *wq, mblk_t *mp)
 
 void zdethmodwput(queue_t *q, mblk_t *mp)
 {
-    ztdeth_drv_t *drvp = q->q_ptr;
+    ztdeth_drv_t *drvp;
+
+    ASSERT(q != NULL && q->q_ptr != NULL);
+    ASSERT(mp != NULL && mp->b_rptr != NULL);
+    drvp = (ztdeth_drv_t *)q->q_ptr;
 
     if (debug) cmn_err(CE_CONT, "entered wput\n");
 	switch (DB_TYPE(mp)) {
@@ -570,7 +614,10 @@ void dump_mac(const char *log, uchar_t *m)
 static void zdethmod_ioctl(queue_t *q, mblk_t *mp)
 {
     struct iocblk *ioc = (struct iocblk *)mp->b_rptr;
+    ztdeth_drv_t *drvp = q->q_ptr;
+    ztdeth_mod_t *modp = (ztdeth_mod_t *)drvp;
     mblk_t *newmp;
+    int err = EINVAL;
 
     switch (ioc->ioc_cmd) {
     case I_LINK:
@@ -586,6 +633,55 @@ static void zdethmod_ioctl(queue_t *q, mblk_t *mp)
             newmp->b_datap->db_type = M_CTL;
             putnext(lwq->l_qbot, newmp);
             miocack(q, mp, 0, 0);
+        }
+        break;
+
+    case ZTDIOC_SETID:
+        if ((modp->mm_flags & (MM_INLIST)) ||
+            (err = miocpullup(mp, sizeof (ztdeth_strid_t))) != 0) {
+            miocnak(q, mp, 0, err);
+        } else {
+            bcopy(mp->b_cont->b_rptr, &modp->mm_strid, 
+                  sizeof (modp->mm_strid));
+            modp->mm_flags |= MM_INLIST;
+            mutex_enter(&ztdeth_mod_lock);
+            list_insert_tail(&ztdeth_mod_list, modp);
+            mutex_exit(&ztdeth_mod_lock);
+            miocack(q, mp, 0, 0);
+            cmn_err(CE_CONT, "Added modp to mod_list\n");
+        }
+        break;
+
+    case ZTDIOC_GETMUXID:
+        if (!(drvp->md_flags & MD_ISDRIVER) ||
+            (err = miocpullup(mp, sizeof (ztdeth_strid_t))) != 0) {
+            miocnak(q, mp, 0, err);
+        } else {
+            int muxid = 0;
+            ztdeth_strid_t *si = (ztdeth_strid_t *)mp->b_cont->b_rptr;
+
+            err = ENXIO;
+            mutex_enter(&ztdeth_mod_lock);
+            for (modp = list_head(&ztdeth_mod_list); modp != NULL;
+                  modp = list_next(&ztdeth_mod_list, modp)) {
+                if (modp->mm_strid.si_ismcast == si->si_ismcast &&
+                    strcmp(modp->mm_strid.si_name, si->si_name) == 0) {
+                    if (modp->mm_ref > 0) {
+                        err = EBUSY;
+                    } else {
+                        muxid = modp->mm_muxid;
+                    }
+                    break;
+                }
+            }
+            mutex_exit(&ztdeth_mod_lock);
+            if (muxid == 0) {
+                miocnak(q, mp, 0, err);
+            } else {
+                *(int *)si = muxid;
+                miocack(q, mp, sizeof (int), 0);
+            }
+            cmn_err(CE_CONT, "Returning muxid %d\n", muxid);
         }
         break;
 
@@ -614,7 +710,9 @@ static void zdethmod_ctl(queue_t *wq, mblk_t *mp)
      * This is a copy of the ioctl. It gives us our mux id.                                                                
      */
     ioc = (struct iocblk *)mp->b_rptr;
+    ASSERT(ioc != NULL);
     lwp = (struct linkblk *)mpnext->b_rptr;
+    ASSERT(lwp != NULL);
     if (ioc->ioc_cmd == I_LINK || ioc->ioc_cmd == I_PLINK) {
         modp->mm_muxid = lwp->l_index;
     }
@@ -722,6 +820,7 @@ static void zdethmod_inproto(queue_t *q, mblk_t *mp)
     int handled = 0;
 
     for (; m != NULL; m = m->b_cont) {
+        if (debug) cmn_err(CE_CONT, "Received protocol msg block: %d\n", DB_TYPE(m));
         if ((DB_TYPE(m) == M_DATA) && (MBLKL(m) > 0)) {
             if (debug) cmn_err(CE_CONT, "We've got some data!\n");
             eh = (struct ether_header *)(m->b_rptr - sizeof(struct ether_header));
@@ -743,14 +842,13 @@ static void zdethmod_inproto(queue_t *q, mblk_t *mp)
                 struct zt_span *span;
                 register struct ztdeth_header *zh;
                 zh = (struct ztdeth_header *)(m->b_rptr + off);
-            
+                ASSERT(zh != NULL);
+
                 span = ztdeth_getspan(eh->ether_shost.ether_addr_octet, zh->subaddr);
             
-                if (span) {
+                if (span != NULL) {
                     /* send the data over, minus the zteth_header structure */
                     zt_dynamic_receive(span, (unsigned char *)zh + sizeof(struct ztdeth_header), len - sizeof(struct ztdeth_header));
-                } else {
-                    cmn_err(CE_CONT, "got zaptel frame, but can not find matching span.\n");
                 }
             }
             handled = 1;
@@ -766,6 +864,8 @@ void zdethmodrput(queue_t *q, mblk_t *mp)
 {
     ztdeth_drv_t *drvp = q->q_ptr;
 
+    ASSERT(drvp != NULL);
+    ASSERT(mp != NULL);
     if (debug) cmn_err(CE_CONT, "Entered rput\n");
 
     if (drvp->md_flags & MD_ISDRIVER) {
@@ -780,7 +880,7 @@ void zdethmodrput(queue_t *q, mblk_t *mp)
         break;
 
     case M_DATA:
-        if (debug) cmn_err(CE_CONT, "Got DATA\n");
+        if (debug) cmn_err(CE_CONT, "Got DATA, but what to do with it?\n");
 		break;
 
 	default:
@@ -789,11 +889,12 @@ void zdethmodrput(queue_t *q, mblk_t *mp)
 	}
 }
 
-struct zt_span *ztdeth_getspan(unsigned char *addr, unsigned short subaddr)
+struct zt_span *ztdeth_getspan(unsigned char *addr, uint16_t subaddr)
 {
 	unsigned long flags;
 	struct ztdeth *z;
 	struct zt_span *span = NULL;
+
 	spin_lock_irqsave(&zlock, flags);
 	z = zdevs;
 	while(z) {
@@ -870,6 +971,7 @@ static void ztdeth_destroy(void *pvt)
 	struct ztdeth *z = pvt;
 	unsigned long flags;
 	struct ztdeth *prev=NULL, *cur;
+
 	spin_lock_irqsave(&zlock, flags);
 	cur = zdevs;
 	while(cur) {
