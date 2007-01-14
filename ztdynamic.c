@@ -484,12 +484,11 @@ static int destroy_dynamic(ZT_DYNAMIC_SPAN *zds)
 		prev = cur;
 		cur = cur->next;
 	}
-	spin_unlock_irqrestore(&dlock, flags);
-
 	/* Destroy it */
 	dynamic_destroy(z);
-	
-	return 0;
+
+	spin_unlock_irqrestore(&dlock, flags);
+	return (0);
 }
 
 static int ztd_rbsbits(struct zt_chan *chan, int bits)

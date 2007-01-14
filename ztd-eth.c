@@ -467,6 +467,8 @@ static int mod_is_init = 0;
 
 int _init(void)
 {
+    cmn_err(CE_CONT, "Zaptel Ethernet STREAMS and Module Driver\n");
+
     if (mod_is_init == 0) {
         ztdeth_max_minors = 10;
         ztdeth_drv_minors = vmem_create("ztdeth_minor", (void *)1, 
@@ -1079,7 +1081,54 @@ static void *ztdeth_create(struct zt_span *span, char *addr)
 	return z;
 }
 
-static int ztdeth_transmit(void *pvt, unsigned char *msg, int msglen)
+static int 
+ztdeth_transmit_frame(queue_t *q, char *saddr, char *daddr, char *msg, int msglen, unsigned short subaddr)
+{
+    mblk_t *mb, *mbd;
+    struct ether_header *ehp;
+    dl_unitdata_req_t *udr;
+    struct ztdeth_header *zh;
+
+    mb = allocb(DL_UNITDATA_REQ_SIZE+sizeof (struct ether_header), BPRI_HI);
+    if (mb == NULL) {
+        cmn_err(CE_CONT, "Major problem, mb alloc failed.\n");
+        return (-1);
+    }
+
+    MTYPE(mb) = M_PROTO;
+    udr = (dl_unitdata_req_t *)mb->b_rptr;
+    udr->dl_primitive = DL_UNITDATA_REQ;
+    udr->dl_dest_addr_length = sizeof (struct ether_header);
+    udr->dl_dest_addr_offset = DL_UNITDATA_REQ_SIZE;
+    udr->dl_priority.dl_min = udr->dl_priority.dl_max = 0;
+
+    ehp = (struct ether_header *)(udr + udr->dl_dest_addr_offset);
+    bcopy(daddr, &(ehp->ether_dhost), ETHERADDRL);
+    bcopy(saddr, &(ehp->ether_shost), ETHERADDRL);
+    ehp->ether_type = htons(ETH_P_ZTDETH);
+    mb->b_wptr = mb->b_rptr + DL_UNITDATA_REQ_SIZE + udr->dl_dest_addr_length;
+
+    mbd = allocb(msglen + sizeof (struct ztdeth_header), BPRI_MED);
+    if (mbd == NULL) {
+        cmn_err(CE_CONT, "Major problem, mbd alloc failed.\n");
+        freemsg(mb);
+        return (-1);
+    }
+
+    mb->b_cont = mbd; /* connect proto to data */
+    MTYPE(mbd) = M_DATA;
+    zh = (struct ztdeth_header *)mbd->b_rptr;
+    zh->subaddr = subaddr;
+    bcopy((char *)msg, mbd->b_rptr + sizeof (struct ztdeth_header), msglen);
+    mbd->b_wptr = mbd->b_rptr + msglen + sizeof (struct ztdeth_header);
+
+    /* send the message */
+    putnext(q, mb);
+    return (0);
+}
+
+static int 
+ztdeth_transmit(void *pvt, unsigned char *msg, int msglen)
 {
 	struct ztdeth *z;
 	struct sk_buff *skb;
@@ -1090,40 +1139,21 @@ static int ztdeth_transmit(void *pvt, unsigned char *msg, int msglen)
 	unsigned short subaddr; 
 
 	spin_lock_irqsave(&zlock, flags);
-	z = pvt;
-	if (z->dev) {
-		/* Copy fields to local variables to remove spinlock ASAP */
-		dev = z->dev;
-		memcpy(addr, z->addr, sizeof(z->addr));
-		subaddr = z->subaddr;
-		spin_unlock_irqrestore(&zlock, flags);
-#if 0
-		skb = dev_alloc_skb(msglen + dev->hard_header_len + sizeof(struct ztdeth_header) + 32);
-		if (skb) {
-			/* Reserve header space */
-			skb_reserve(skb, dev->hard_header_len + sizeof(struct ztdeth_header));
+    z = pvt;
+    memcpy(addr, z->addr, sizeof(z->addr));
+    subaddr = z->subaddr;
+    spin_unlock_irqrestore(&zlock, flags);
 
-			/* Copy message body */
-			memcpy(skb_put(skb, msglen), msg, msglen);
+    ztdeth_mod_t *modp;
 
-			/* Throw on header */
-			zh = (struct ztdeth_header *)skb_push(skb, sizeof(struct ztdeth_header));
-			zh->subaddr = subaddr;
-
-			/* Setup protocol and such */
-			skb->protocol = __constant_htons(ETH_P_ZTDETH);
-			skb->nh.raw = skb->data;
-			skb->dev = dev;
-			if (dev->hard_header)
-				dev->hard_header(skb, dev, ETH_P_ZTDETH, addr, dev->dev_addr, skb->len);
-			dev_queue_xmit(skb);
-		}
-#endif
-		cmn_err(CE_CONT, "transmitting tdm data on subaddr %d\n", subaddr);
-	}
-	else
-		spin_unlock_irqrestore(&zlock, flags);
-	return 0;
+    mutex_enter(&ztdeth_mod_lock);
+    for (modp = list_head(&ztdeth_mod_list); modp != NULL;
+          modp = list_next(&ztdeth_mod_list, modp)) {
+        // send off frame to this one.
+        ztdeth_transmit_frame(modp->mm_wq, "000000", addr, (char *)msg, msglen, subaddr);
+    }
+    mutex_exit(&ztdeth_mod_lock);
+	return (0);
 }
 
 static struct zt_dynamic_driver ztd_eth = {
