@@ -3,7 +3,7 @@
  *
  * Written by Joseph Benden <joe@thrallingpenguin.com>
  *
- * Copyright (C) 2006 Thralling Penguin LLC. All rights reserved.
+ * Copyright (C) 2006-2007 Thralling Penguin LLC. All rights reserved.
  *
  */
 
@@ -27,7 +27,6 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <stddef.h>
-
 /* Must be after other includes */
 #include <sys/ddi.h>
 #include <sys/sunddi.h>
@@ -51,38 +50,37 @@
 #ifndef MTYPE
 # define        MTYPE(m)        ((m)->b_datap->db_type)
 #endif
-
 #ifndef MLEN
 # define        MLEN(m)         ((m)->b_wptr - (m)->b_rptr)
 #endif
 
+/* we depend on these drivers to operate */
 char _depends_on[] = "drv/ip drv/zaptel drv/ztdynamic";
 
 static struct module_info zdeth_minfo = {
 	0x666b, "ztd-eth", 0, INFPSZ, 0, 0
 };
 
-static int debug = 1;
+static queue_t *global_queue = NULL;
+static int debug = 0;
 static spinlock_t zlock;
 
-#define ETH_P_ZTDETH	0xd00d /* Ethernet Type Field Value */
-
 struct ztdeth_header {
-	uint16_t subaddr;
+	uint16_t subaddr;           /* Zaptel ethernet subaddress */
 };
 
 static struct ztdeth {
 	unsigned char addr[64];
-	uint16_t subaddr; /* Network byte order */
+	uint16_t subaddr;           /* Network byte order */
 	struct zt_span *span;
-	char ethdev[64];
-	struct net_device *dev;
+	char ethdev[64];            /* actual interface named passed, ie: rtls0 */
+	struct net_device *dev;     /* this isn't used */
 	struct ztdeth *next;
 } *zdevs = NULL;
 
 typedef struct ztdeth_mod_s {
-    uint_t mm_flags;
-    int mm_muxid;
+    uint_t mm_flags;            /* Flags below */
+    int mm_muxid;               /* This is our muxid, which is needed for UNPLUMB */
     queue_t *mm_wq;
     t_uscalar_t mm_sap;
     uint_t mm_ref;
@@ -91,7 +89,7 @@ typedef struct ztdeth_mod_s {
 } ztdeth_mod_t;
 
 typedef struct ztdeth_drv_s {
-    uint_t md_flags;
+    uint_t md_flags;            /* Flags below */
     t_uscalar_t md_dlstate;
     queue_t *md_rq;
     minor_t md_minor;
@@ -100,7 +98,6 @@ typedef struct ztdeth_drv_s {
 #define MD_ISDRIVER 0x00000001
 #define MM_INLIST   0x00000002
 #define MM_TUNNELIN 0x00000004
-
 
 static dev_info_t *zdeth_dev_info = NULL;
 
@@ -152,7 +149,7 @@ static void zdethmod_outproto(queue_t *, mblk_t *);
 static void
 zdethmodlrput(queue_t *rq, mblk_t *mp)
 {
-	cmn_err(CE_NOTE, "unexpected lrput");
+	
 	mblk_t *m = mp;
 	register struct ether_header *eh = NULL;
 	size_t off = 0, len, mlen;
@@ -172,19 +169,13 @@ zdethmodlrput(queue_t *rq, mblk_t *mp)
         freemsg(mp);
         break;
 
-	case M_DATA:
+    case M_DATA:
+    case M_PCPROTO:
+    case M_PROTO:
+    default:
+        freemsg(mp);
 		break;
-
-	default:
-		freemsg(mp);
-		return;
 	}
-	
-	if (m == NULL) {
-		freemsg(mp);
-		return;
-	}
-    freemsg(mp);
 }
 
 /* Nobody should ever use this function */
@@ -192,7 +183,7 @@ zdethmodlrput(queue_t *rq, mblk_t *mp)
 static void
 zdethmodlwput(queue_t *wq, mblk_t *mp)
 {
-	cmn_err(CE_NOTE, "unexpected lwput");
+	if (debug) cmn_err(CE_NOTE, "unexpected lwput");
 	freemsg(mp);
 }
 
@@ -284,7 +275,7 @@ static int zdeth_attach(dev_info_t *devi, ddi_attach_cmd_t cmd)
 	if (cmd != DDI_ATTACH)
 		return (DDI_FAILURE);
 
-    cmn_err(CE_CONT, "zdeth_attach\n");
+    if (debug) cmn_err(CE_CONT, "zdeth_attach\n");
     if (ddi_create_minor_node(devi, "ztdeth", S_IFCHR, 0, "ddi_zaptel",
         CLONE_DEV) == DDI_FAILURE) {
         ddi_remove_minor_node(devi, NULL);
@@ -293,24 +284,23 @@ static int zdeth_attach(dev_info_t *devi, ddi_attach_cmd_t cmd)
 
 	zdeth_dev_info = devi;
 	zt_dynamic_register(&ztd_eth);
-
 	return (DDI_SUCCESS);
 }
 
-static int zdeth_detach(dev_info_t *devi, ddi_detach_cmd_t cmd)
+static int 
+zdeth_detach(dev_info_t *devi, ddi_detach_cmd_t cmd)
 {
 	if (cmd != DDI_DETACH)
 		return (DDI_FAILURE);
 
-    cmn_err(CE_CONT, "zdeth_detach\n");
+    if (debug) cmn_err(CE_CONT, "zdeth_detach\n");
 	zt_dynamic_unregister(&ztd_eth);
 	ddi_remove_minor_node(devi, NULL);
-
 	return (DDI_SUCCESS);
 }
 
-static int zdeth_getinfo(dev_info_t *dip, ddi_info_cmd_t infocmd, void *arg,
-		void **res)
+static int 
+zdeth_getinfo(dev_info_t *dip, ddi_info_cmd_t infocmd, void *arg, void **res)
 {
 	int result = DDI_FAILURE;
 	
@@ -331,12 +321,12 @@ static int zdeth_getinfo(dev_info_t *dip, ddi_info_cmd_t infocmd, void *arg,
 	return (result);
 }
 
-
-static int zdethdevopen(queue_t *q, dev_t *devp, int oflag, int sflag, cred_t *crp)
+static int 
+zdethdevopen(queue_t *q, dev_t *devp, int oflag, int sflag, cred_t *crp)
 {
 	int result = 0;
 
-    cmn_err(CE_CONT, "devopen!\n");
+    if (debug) cmn_err(CE_CONT, "devopen!\n");
 	if ((sflag & MODOPEN) != 0)
 		result = ENXIO;
 	if (result == 0)
@@ -344,15 +334,16 @@ static int zdethdevopen(queue_t *q, dev_t *devp, int oflag, int sflag, cred_t *c
 	return (result);
 }
 
-static int zdethdevclose(queue_t *q, int flag, cred_t *crp)
+static int 
+zdethdevclose(queue_t *q, int flag, cred_t *crp)
 {
-    cmn_err(CE_CONT, "devclose!\n");
+    if (debug) cmn_err(CE_CONT, "devclose!\n");
 	qprocsoff(q);
 	return (0);
 }
 
-
-static mblk_t *zdeth_dlpi_comm(t_uscalar_t prim, size_t size)
+static mblk_t *
+zdeth_dlpi_comm(t_uscalar_t prim, size_t size)
 {
 	mblk_t *mp;
 	
@@ -368,12 +359,14 @@ static mblk_t *zdeth_dlpi_comm(t_uscalar_t prim, size_t size)
 	return (mp);
 }
 
-static void zdeth_dlpi_send(queue_t *q, mblk_t *mp)
+static void 
+zdeth_dlpi_send(queue_t *q, mblk_t *mp)
 {
 	putnext(q, mp);
 }
 	
-static int zdethmodopen(queue_t *rq, dev_t *devp, int oflag, int sflag, cred_t *credp)
+static int 
+zdethmodopen(queue_t *rq, dev_t *devp, int oflag, int sflag, cred_t *credp)
 {
     queue_t *wq = OTHERQ(rq);
 
@@ -435,7 +428,8 @@ static int zdethmodopen(queue_t *rq, dev_t *devp, int oflag, int sflag, cred_t *
 	return (0);
 }
 
-static int zdethmodclose(queue_t *rq, int flag, cred_t *crp)
+static int 
+zdethmodclose(queue_t *rq, int flag, cred_t *crp)
 {
     ztdeth_drv_t *drvp = rq->q_ptr;
 
@@ -463,9 +457,10 @@ static int zdethmodclose(queue_t *rq, int flag, cred_t *crp)
 /*
  * Kernel module functions
  */
-static int mod_is_init = 0;
+static int mod_is_init = 0; /* this module loads twice, so we need to keep track */
 
-int _init(void)
+int 
+_init(void)
 {
     cmn_err(CE_CONT, "Zaptel Ethernet STREAMS and Module Driver\n");
 
@@ -495,9 +490,11 @@ int _init(void)
     return (DDI_SUCCESS);
 }
 
-int _fini(void)
+int 
+_fini(void)
 {
-    if (debug) cmn_err(CE_CONT, "_fini\n");
+    cmn_err(CE_CONT, "Zaptel Ethernet STREAMS and Module Driver Unloaded\n");
+
     if (mod_is_init == 1) {
         if (ztdeth_drv_minors != NULL) {
             vmem_destroy(ztdeth_drv_minors);
@@ -509,12 +506,14 @@ int _fini(void)
 	return (mod_remove(&modlinkage));
 }
 
-int _info(struct modinfo *modinfop)
+int 
+_info(struct modinfo *modinfop)
 {
 	return (mod_info(&modlinkage, modinfop));
 }
 
-static void zdethmod_watchproto(queue_t *wq, mblk_t *mp)
+static void 
+zdethmod_watchproto(queue_t *wq, mblk_t *mp)
 {
     ztdeth_mod_t *modp = wq->q_ptr;
     union DL_primitives *dlp = (union DL_primitives *)mp->b_rptr;
@@ -537,7 +536,8 @@ static void zdethmod_watchproto(queue_t *wq, mblk_t *mp)
     putnext(wq, mp);
 }
 
-void zdethmodwput(queue_t *q, mblk_t *mp)
+void 
+zdethmodwput(queue_t *q, mblk_t *mp)
 {
     ztdeth_drv_t *drvp;
 
@@ -545,16 +545,13 @@ void zdethmodwput(queue_t *q, mblk_t *mp)
     ASSERT(mp != NULL && mp->b_rptr != NULL);
     drvp = (ztdeth_drv_t *)q->q_ptr;
 
-    if (debug) cmn_err(CE_CONT, "entered wput\n");
 	switch (DB_TYPE(mp)) {
     case M_IOCTL:
-        if (debug) cmn_err(CE_CONT, "Handling IOCTL\n");
         zdethmod_ioctl(q, mp);
         break;
 
 	case M_PROTO:
     case M_PCPROTO:
-        if (debug) cmn_err(CE_CONT, "M_PROTO\n");
         if (drvp->md_flags & MD_ISDRIVER) {
             zdethmod_outproto(q, mp);
         } else {
@@ -563,7 +560,6 @@ void zdethmodwput(queue_t *q, mblk_t *mp)
 		break;
 
     case M_DATA:
-        if (debug) cmn_err(CE_CONT, "M_DATA\n");
         if (drvp->md_flags & MD_ISDRIVER) {
             cmn_err(CE_CONT,"zdethmodwput\n");
         } else {
@@ -572,7 +568,6 @@ void zdethmodwput(queue_t *q, mblk_t *mp)
 		break;
 
     case M_CTL:
-        if (debug) cmn_err(CE_CONT, "M_CTL\n");
         if (drvp->md_flags & MD_ISDRIVER) {
             freemsg(mp);
         } else {
@@ -581,7 +576,6 @@ void zdethmodwput(queue_t *q, mblk_t *mp)
         break;
 
     case M_FLUSH:
-        if (debug) cmn_err(CE_CONT, "M_FLUSH\n");
         if (drvp->md_flags & MD_ISDRIVER) {
             if (*mp->b_rptr & FLUSHR) {
                 *mp->b_rptr &= ~FLUSHW;
@@ -595,7 +589,6 @@ void zdethmodwput(queue_t *q, mblk_t *mp)
         break;
 
     default:
-        if (debug) cmn_err(CE_CONT, "zdethmodwput default handler.\n");
 		if (drvp->md_flags & MD_ISDRIVER) {
             freemsg(mp);
         } else {
@@ -605,15 +598,8 @@ void zdethmodwput(queue_t *q, mblk_t *mp)
 	}
 }
 
-void dump_mac(const char *log, uchar_t *m)
-{
-    if (debug <= 0) return;
-
-	cmn_err(CE_CONT, "%s %02x:%02x:%02x:%02x:%02x:%02x", log,
-            m[0], m[1], m[2], m[3], m[4], m[5]);
-}
-
-static void zdethmod_ioctl(queue_t *q, mblk_t *mp)
+static void 
+zdethmod_ioctl(queue_t *q, mblk_t *mp)
 {
     struct iocblk *ioc = (struct iocblk *)mp->b_rptr;
     ztdeth_drv_t *drvp = q->q_ptr;
@@ -634,6 +620,11 @@ static void zdethmod_ioctl(queue_t *q, mblk_t *mp)
                 (struct linkblk *)mp->b_cont->b_rptr;
             newmp->b_datap->db_type = M_CTL;
             putnext(lwq->l_qbot, newmp);
+
+            // This is ugly. We are bound to a single NIC in a machine
+            // So this needs fixed in the future!
+            global_queue = lwq->l_qbot;
+
             miocack(q, mp, 0, 0);
         }
         break;
@@ -650,7 +641,7 @@ static void zdethmod_ioctl(queue_t *q, mblk_t *mp)
             list_insert_tail(&ztdeth_mod_list, modp);
             mutex_exit(&ztdeth_mod_lock);
             miocack(q, mp, 0, 0);
-            cmn_err(CE_CONT, "Added modp to mod_list\n");
+            if (debug) cmn_err(CE_CONT, "Added modp to mod_list\n");
         }
         break;
 
@@ -683,7 +674,7 @@ static void zdethmod_ioctl(queue_t *q, mblk_t *mp)
                 *(int *)si = muxid;
                 miocack(q, mp, sizeof (int), 0);
             }
-            cmn_err(CE_CONT, "Returning muxid %d\n", muxid);
+            if (debug) cmn_err(CE_CONT, "Returning muxid %d\n", muxid);
         }
         break;
 
@@ -692,7 +683,9 @@ static void zdethmod_ioctl(queue_t *q, mblk_t *mp)
         break;
     }
 }
-static void zdethmod_ctl(queue_t *wq, mblk_t *mp)
+
+static void 
+zdethmod_ctl(queue_t *wq, mblk_t *mp)
 {
     ztdeth_mod_t *modp = wq->q_ptr;
     mblk_t *mpnext = mp->b_cont;
@@ -721,7 +714,8 @@ static void zdethmod_ctl(queue_t *wq, mblk_t *mp)
     freemsg(mp);
 }
 
-static void zdethmod_outproto(queue_t *q, mblk_t *mp)
+static void 
+zdethmod_outproto(queue_t *q, mblk_t *mp)
 {
     ztdeth_drv_t    *drvp = q->q_ptr;
 	union DL_primitives *dlp = (union DL_primitives *)mp->b_rptr;
@@ -752,7 +746,7 @@ static void zdethmod_outproto(queue_t *q, mblk_t *mp)
         break;
 
     case DL_BIND_REQ:
-        cmn_err(CE_CONT, "ack bind req\n");
+        if (debug) cmn_err(CE_CONT, "ack bind req\n");
         if (drvp->md_dlstate == DL_UNBOUND) {
             drvp->md_dlstate = DL_IDLE;
             dlbindack(q, mp, dlp->bind_req.dl_sap, NULL, 0, 0, 0);
@@ -762,7 +756,7 @@ static void zdethmod_outproto(queue_t *q, mblk_t *mp)
 		break;
 
     case DL_UNBIND_REQ:
-        cmn_err(CE_CONT, "ack unbind req\n");
+        if (debug) cmn_err(CE_CONT, "ack unbind req\n");
         if (drvp->md_dlstate == DL_IDLE) {
             drvp->md_dlstate = DL_UNBOUND;
             dlokack(q, mp, DL_UNBIND_REQ);
@@ -787,7 +781,7 @@ static void zdethmod_outproto(queue_t *q, mblk_t *mp)
         break;
 
     case DL_ATTACH_REQ:
-        cmn_err(CE_CONT, "ack attach req\n");
+        if (debug) cmn_err(CE_CONT, "ack attach req\n");
         if (drvp->md_dlstate == DL_UNATTACHED) {
             drvp->md_dlstate = DL_UNBOUND;
             dlokack(q, mp, DL_ATTACH_REQ);
@@ -797,7 +791,7 @@ static void zdethmod_outproto(queue_t *q, mblk_t *mp)
         break;
 
     case DL_DETACH_REQ:
-        cmn_err(CE_CONT, "ack detach req\n");
+        if (debug) cmn_err(CE_CONT, "ack detach req\n");
         if (drvp->md_dlstate == DL_UNBOUND) {
             drvp->md_dlstate = DL_UNATTACHED;
             dlokack(q, mp, DL_DETACH_REQ);
@@ -807,28 +801,28 @@ static void zdethmod_outproto(queue_t *q, mblk_t *mp)
         break;
 		
 	default:
-		cmn_err(CE_NOTE, "error ack on %d", dlp->dl_primitive);
+		if (debug) cmn_err(CE_NOTE, "error ack on %d", dlp->dl_primitive);
         dlerrorack(q, mp, dlp->dl_primitive, DL_BADPRIM, 0);
         break;
 	}
 }
 
-static void zdethmod_inproto(queue_t *q, mblk_t *mp)
+static void 
+zdethmod_inproto(queue_t *q, mblk_t *mp)
 {
     ztdeth_mod_t *modp = q->q_ptr;
     mblk_t *m = mp;
 	register struct ether_header *eh = NULL;
-	uint_t off = 0, len, mlen;
+	uint_t len, mlen;
     int handled = 0;
 
     for (; m != NULL; m = m->b_cont) {
-        if (debug) cmn_err(CE_CONT, "Received protocol msg block: %d\n", DB_TYPE(m));
         if ((DB_TYPE(m) == M_DATA) && (MBLKL(m) > 0)) {
-            if (debug) cmn_err(CE_CONT, "We've got some data!\n");
             eh = (struct ether_header *)(m->b_rptr - sizeof(struct ether_header));
-            len = MBLKL(m) - off;
+            len = MBLKL(m);
             mlen = msgdsize(m);
-            
+
+#ifdef DUMP_PACKET
             if (debug) {
                 cmn_err(CE_CONT, "!frame src=%02x:%02x:%02x:%02x:%02x:%02x dst=%02x:%02x:%02x:%02x:%02x:%02x len=%d/%d type=%x\n",
                     eh->ether_shost.ether_addr_octet[0], eh->ether_shost.ether_addr_octet[1],
@@ -839,21 +833,25 @@ static void zdethmod_inproto(queue_t *q, mblk_t *mp)
                     eh->ether_dhost.ether_addr_octet[4], eh->ether_dhost.ether_addr_octet[5],
                     len, mlen, eh->ether_type);
             }
-            // @todo How about not calling htons a whole bunch of times!
-            if (eh->ether_type == htons(ETH_P_ZTDETH) && len > sizeof(struct ztdeth_header)) {
+#endif
+
+#   define ZTDETH_HTONS 0x0DD0
+
+
+            if (eh && eh->ether_type == ZTDETH_HTONS && len > sizeof(struct ztdeth_header)) {
                 struct zt_span *span;
                 register struct ztdeth_header *zh;
-                zh = (struct ztdeth_header *)(m->b_rptr + off);
-                ASSERT(zh != NULL);
+                zh = (struct ztdeth_header *)m->b_rptr;
 
-                span = ztdeth_getspan(eh->ether_shost.ether_addr_octet, zh->subaddr);
-            
-                if (span != NULL) {
-                    /* send the data over, minus the zteth_header structure */
-                    zt_dynamic_receive(span, (unsigned char *)zh + sizeof(struct ztdeth_header), len - sizeof(struct ztdeth_header));
+                if (zh) {
+                    span = ztdeth_getspan(eh->ether_shost.ether_addr_octet, zh->subaddr);
+
+                    if (span != NULL) {
+                        zt_dynamic_receive(span, (unsigned char *)zh + sizeof(struct ztdeth_header), len - sizeof(struct ztdeth_header));
+                        handled = 1;
+                    }
                 }
             }
-            handled = 1;
         }
     }
     if (handled == 1)
@@ -862,13 +860,13 @@ static void zdethmod_inproto(queue_t *q, mblk_t *mp)
         putnext(q, mp);
 }
 
-void zdethmodrput(queue_t *q, mblk_t *mp)
+void 
+zdethmodrput(queue_t *q, mblk_t *mp)
 {
     ztdeth_drv_t *drvp = q->q_ptr;
 
     ASSERT(drvp != NULL);
     ASSERT(mp != NULL);
-    if (debug) cmn_err(CE_CONT, "Entered rput\n");
 
     if (drvp->md_flags & MD_ISDRIVER) {
         freemsg(mp);
@@ -891,7 +889,8 @@ void zdethmodrput(queue_t *q, mblk_t *mp)
 	}
 }
 
-struct zt_span *ztdeth_getspan(unsigned char *addr, uint16_t subaddr)
+struct zt_span *
+ztdeth_getspan(unsigned char *addr, uint16_t subaddr)
 {
 	unsigned long flags;
 	struct ztdeth *z;
@@ -900,7 +899,7 @@ struct zt_span *ztdeth_getspan(unsigned char *addr, uint16_t subaddr)
 	spin_lock_irqsave(&zlock, flags);
 	z = zdevs;
 	while(z) {
-		if (!memcmp(addr, z->addr, ETHERADDRL) &&
+		if (!memcmp(addr, z->addr, 6 /* ETHERADDRL */) &&
 			z->subaddr == subaddr)
 			break;
 		z = z->next;
@@ -908,10 +907,11 @@ struct zt_span *ztdeth_getspan(unsigned char *addr, uint16_t subaddr)
 	if (z)
 		span = z->span;
 	spin_unlock_irqrestore(&zlock, flags);
-	return span;
+	return (span);
 }
 
-static int digit2int(char d)
+static int 
+digit2int(char d)
 {
 	switch(d) {
 	case 'F':
@@ -920,14 +920,14 @@ static int digit2int(char d)
 	case 'C':
 	case 'B':
 	case 'A':
-		return d - 'A' + 10;
+		return (d - 'A' + 10);
 	case 'f':
 	case 'e':
 	case 'd':
 	case 'c':
 	case 'b':
 	case 'a':
-		return d - 'a' + 10;
+		return (d - 'a' + 10);
 	case '9':
 	case '8':
 	case '7':
@@ -938,37 +938,39 @@ static int digit2int(char d)
 	case '2':
 	case '1':
 	case '0':
-		return d - '0';
+		return (d - '0');
 	}
-	return -1;
+	return (-1);
 }
 
-static int hex2int(char *s)
+static int 
+hex2int(char *s)
 {
 	int res;
 	int tmp;
 	/* Gotta be at least one digit */
 	if (strlen(s) < 1)
-		return -1;
+		return (-1);
 	/* Can't be more than two */
 	if (strlen(s) > 2)
-		return -1;
+		return (-1);
 	/* Grab the first digit */
 	res = digit2int(s[0]);
 	if (res < 0)
-		return -1;
+		return (-1);
 	tmp = res;
 	/* Grab the next */
 	if (strlen(s) > 1) {
 		res = digit2int(s[1]);
 		if (res < 0)
-			return -1;
+			return (-1);
 		tmp = tmp * 16 + res;
 	}
-	return tmp;
+	return (tmp);
 }
 
-static void ztdeth_destroy(void *pvt)
+static void 
+ztdeth_destroy(void *pvt)
 {
 	struct ztdeth *z = pvt;
 	unsigned long flags;
@@ -994,7 +996,8 @@ static void ztdeth_destroy(void *pvt)
 	}
 }
 
-static void *ztdeth_create(struct zt_span *span, char *addr)
+static void *
+ztdeth_create(struct zt_span *span, char *addr)
 {
 	struct ztdeth *z;
 	char src[256];
@@ -1004,7 +1007,6 @@ static void *ztdeth_create(struct zt_span *span, char *addr)
 
 	z = (struct ztdeth *)kmem_zalloc(sizeof(struct ztdeth), KM_NOSLEEP);
 	if (z) {
-
 		/* Address should be <dev>/<macaddr>[/subaddr] */
 		strncpy(tmp, addr, sizeof(tmp) - 1);
 		tmp2 = strchr(tmp, '/');
@@ -1015,7 +1017,7 @@ static void *ztdeth_create(struct zt_span *span, char *addr)
 		} else {
 			printk("Invalid TDMoE address (no device) '%s'\n", addr);
 			kmem_free(z, sizeof(struct ztdeth));
-			return NULL;
+			return (NULL);
 		}
 		if (tmp2) {
 			tmp4 = strchr(tmp2+1, '/');
@@ -1043,12 +1045,12 @@ static void *ztdeth_create(struct zt_span *span, char *addr)
 			if (x != 6) {
 				printk("TDMoE: Invalid MAC address in: %s\n", addr);
 				kmem_free(z, sizeof(struct ztdeth));
-				return NULL;
+				return (NULL);
 			}
 		} else {
 			printk("TDMoE: Missing MAC address\n");
 			kmem_free(z, sizeof(struct ztdeth));
-			return NULL;
+			return (NULL);
 		}
 		if (tmp4) {
 			int sub = 0;
@@ -1062,7 +1064,7 @@ static void *ztdeth_create(struct zt_span *span, char *addr)
 				} else {
 					printk("TDMoE: Invalid subaddress\n");
 					kmem_free(z, sizeof(struct ztdeth));
-					return NULL;
+					return (NULL);
 				}
 				mul *= 10;
 				tmp3--;
@@ -1071,43 +1073,50 @@ static void *ztdeth_create(struct zt_span *span, char *addr)
 		}
 		z->span = span;
 
-		printk("TDMoE: Added new interface for %s (addr=%s, subaddr=%d)\n", span->name, addr, ntohs(z->subaddr));
-			
+		cmn_err(CE_CONT, "TDMoE: Added new interface for %s (addr=%s, subaddr=%d)\n", span->name, addr, ntohs(z->subaddr));
+    
 		spin_lock_irqsave(&zlock, flags);
 		z->next = zdevs;
 		zdevs = z;
 		spin_unlock_irqrestore(&zlock, flags);
 	}
-	return z;
+	return (z);
 }
 
 static int 
-ztdeth_transmit_frame(queue_t *q, char *saddr, char *daddr, char *msg, int msglen, unsigned short subaddr)
+ztdeth_transmit_frame(queue_t *q, unsigned char *daddr, char *msg, int msglen, unsigned short subaddr)
 {
     mblk_t *mb, *mbd;
     struct ether_header *ehp;
     dl_unitdata_req_t *udr;
     struct ztdeth_header *zh;
+    unsigned char buf[8];
 
-    mb = allocb(DL_UNITDATA_REQ_SIZE+sizeof (struct ether_header), BPRI_HI);
+    if (q == NULL) {
+        return (-2);
+    }
+
+    mb = allocb(DL_UNITDATA_REQ_SIZE + 8, BPRI_MED);
     if (mb == NULL) {
         cmn_err(CE_CONT, "Major problem, mb alloc failed.\n");
         return (-1);
     }
 
     MTYPE(mb) = M_PROTO;
+    mb->b_wptr += DL_UNITDATA_REQ_SIZE;
     udr = (dl_unitdata_req_t *)mb->b_rptr;
     udr->dl_primitive = DL_UNITDATA_REQ;
-    udr->dl_dest_addr_length = sizeof (struct ether_header);
+    udr->dl_dest_addr_length = 8; // Size of ethernet address + ethernet type
     udr->dl_dest_addr_offset = DL_UNITDATA_REQ_SIZE;
     udr->dl_priority.dl_min = udr->dl_priority.dl_max = 0;
 
-    ehp = (struct ether_header *)(udr + udr->dl_dest_addr_offset);
-    bcopy(daddr, &(ehp->ether_dhost), ETHERADDRL);
-    bcopy(saddr, &(ehp->ether_shost), ETHERADDRL);
-    ehp->ether_type = htons(ETH_P_ZTDETH);
-    mb->b_wptr = mb->b_rptr + DL_UNITDATA_REQ_SIZE + udr->dl_dest_addr_length;
-
+    bcopy((caddr_t)daddr, (caddr_t)mb->b_wptr, 6);
+    mb->b_wptr += 6;
+    *((unsigned char *)mb->b_wptr) = 0x0d;
+    mb->b_wptr += 1;
+    *((unsigned char *)mb->b_wptr) = 0xd0;
+    mb->b_wptr += 1;
+    
     mbd = allocb(msglen + sizeof (struct ztdeth_header), BPRI_MED);
     if (mbd == NULL) {
         cmn_err(CE_CONT, "Major problem, mbd alloc failed.\n");
@@ -1115,12 +1124,21 @@ ztdeth_transmit_frame(queue_t *q, char *saddr, char *daddr, char *msg, int msgle
         return (-1);
     }
 
-    mb->b_cont = mbd; /* connect proto to data */
+    mb->b_cont = mbd; /* connect proto mblock to data mblock */
     MTYPE(mbd) = M_DATA;
     zh = (struct ztdeth_header *)mbd->b_rptr;
     zh->subaddr = subaddr;
-    bcopy((char *)msg, mbd->b_rptr + sizeof (struct ztdeth_header), msglen);
-    mbd->b_wptr = mbd->b_rptr + msglen + sizeof (struct ztdeth_header);
+    mbd->b_wptr += sizeof(struct ztdeth_header);
+    bcopy((caddr_t)msg, (caddr_t)mbd->b_wptr, msglen);
+    mbd->b_wptr += msglen;
+
+#ifdef DEBUG_SEND_SIDE
+    cmn_err(CE_CONT, "Sending zaptel frame dst=%02x:%02x:%02x:%02x:%02x:%02x subaddr=%d len=%d\n",
+        daddr[0], daddr[1],
+        daddr[2], daddr[3],
+        daddr[4], daddr[5],
+        subaddr, msglen);
+#endif
 
     /* send the message */
     putnext(q, mb);
@@ -1131,32 +1149,18 @@ static int
 ztdeth_transmit(void *pvt, unsigned char *msg, int msglen)
 {
 	struct ztdeth *z;
-	struct sk_buff *skb;
-	struct ztdeth_header *zh;
-	unsigned long flags;
-	struct net_device *dev;
-	unsigned char addr[ETHERADDRL];
-	unsigned short subaddr; 
 
-	spin_lock_irqsave(&zlock, flags);
-    z = pvt;
-    memcpy(addr, z->addr, sizeof(z->addr));
-    subaddr = z->subaddr;
-    spin_unlock_irqrestore(&zlock, flags);
+    if (pvt == NULL)
+        return (-1);
 
-    ztdeth_mod_t *modp;
+    z = (struct ztdeth *)pvt;
+    ztdeth_transmit_frame(global_queue, z->addr, (char *)msg, msglen, z->subaddr);
 
-    mutex_enter(&ztdeth_mod_lock);
-    for (modp = list_head(&ztdeth_mod_list); modp != NULL;
-          modp = list_next(&ztdeth_mod_list, modp)) {
-        // send off frame to this one.
-        ztdeth_transmit_frame(modp->mm_wq, "000000", addr, (char *)msg, msglen, subaddr);
-    }
-    mutex_exit(&ztdeth_mod_lock);
 	return (0);
 }
 
-static struct zt_dynamic_driver ztd_eth = {
+static struct zt_dynamic_driver 
+ztd_eth = {
 	"eth",
 	"Ethernet",
 	ztdeth_create,

@@ -56,12 +56,14 @@
 #undef spin_lock_init
 #define spin_lock_init(a) mutex_init(a, NULL, MUTEX_DRIVER, NULL)
 
+/*
 #ifdef BIG_ENDIAN
 #define htons(x) (x)
 #define ntohs(x) (x)
 #else
 // fix me
 #endif
+*/
 
 struct ztdynamic_state {
 	dev_info_t *dip;
@@ -92,7 +94,7 @@ static void *ztdynamic_statep;
  */
 
 /* Arbitrary limit to the max # of channels in a span */
-#define ZT_DYNAMIC_MAX_CHANS	256
+#define ZT_DYNAMIC_MAX_CHANS	    256
 
 #define ZTD_FLAG_YELLOW_ALARM		(1 << 0)
 #define ZTD_FLAG_SIGBITS_PRESENT	(1 << 1)
@@ -102,18 +104,6 @@ static void *ztdynamic_statep;
 #define ERR_NCHAN					(1 << 17)
 #define ERR_LEN						(1 << 18)
 
-#ifdef ENABLE_TASKLETS
-static int taskletrun;
-static int taskletsched;
-static int taskletpending;
-static int taskletexec;
-static int txerrors;
-static struct tasklet_struct ztd_tlet;
-
-static void ztd_tasklet(unsigned long data);
-#endif
-
-
 static struct zt_dynamic {
 	char addr[40];
 	char dname[20];
@@ -121,7 +111,7 @@ static struct zt_dynamic {
 	int alarm;
 	int usecount;
 	int dead;
-	long rxjif;
+	hrtime_t rxjif;
 	unsigned short txcnt;
 	unsigned short rxcnt;
 	struct zt_span span;
@@ -137,14 +127,12 @@ static struct zt_dynamic {
 } *dspans;
 	
 static struct zt_dynamic_driver *drivers =  NULL;
-
 static int debug = 1;
-
 static int hasmaster = 0;
-
 static spinlock_t dlock;
 
-static void checkmaster(void)
+static void 
+checkmaster(void)
 {
 	unsigned long flags;
 	int newhasmaster=0;
@@ -173,12 +161,13 @@ static void checkmaster(void)
 		master->master = 1;
 	spin_unlock_irqrestore(&dlock, flags);
 	if (master)
-		printk("TDMoX: New master: %s\n", master->span.name);
+		cmn_err(CE_CONT, "TDMoX: New master: %s\n", master->span.name);
 	else
-		printk("TDMoX: No master.\n");
+		cmn_err(CE_CONT, "TDMoX: No master.\n");
 }
 
-static void ztd_sendmessage(struct zt_dynamic *z)
+static void 
+ztd_sendmessage(struct zt_dynamic *z)
 {
 	unsigned char *buf = z->msgbuf;
 	unsigned short bits;
@@ -235,10 +224,10 @@ static void ztd_sendmessage(struct zt_dynamic *z)
 	}
 	
 	z->driver->transmit(z->pvt, z->msgbuf, msglen);
-	
 }
 
-static inline void __ztdynamic_run(void)
+static inline void 
+ztdynamic_run(void)
 {
 	unsigned long flags;
 	struct zt_dynamic *z;
@@ -262,22 +251,8 @@ static inline void __ztdynamic_run(void)
 	spin_unlock_irqrestore(&dlock, flags);
 }
 
-#ifdef ENABLE_TASKLETS
-static void ztdynamic_run(void)
-{
-	if (!taskletpending) {
-		taskletpending = 1;
-		taskletsched++;
-		tasklet_hi_schedule(&ztd_tlet);
-	} else {
-		txerrors++;
-	}
-}
-#else
-#define ztdynamic_run __ztdynamic_run
-#endif
-
-void zt_dynamic_receive(struct zt_span *span, unsigned char *msg, int msglen)
+void 
+zt_dynamic_receive(struct zt_span *span, unsigned char *msg, int msglen)
 {
 	struct zt_dynamic *ztd = span->pvt;
 	int newerr=0;
@@ -288,7 +263,7 @@ void zt_dynamic_receive(struct zt_span *span, unsigned char *msg, int msglen)
 	int nchans, master;
 	int newalarm;
 	unsigned short rxpos;
-	
+
 	spin_lock_irqsave(&dlock, flags);
 	if (msglen < 6) {
 		spin_unlock_irqrestore(&dlock, flags);
@@ -405,7 +380,8 @@ void zt_dynamic_receive(struct zt_span *span, unsigned char *msg, int msglen)
 	
 }
 
-static void dynamic_destroy(struct zt_dynamic *z)
+static void 
+dynamic_destroy(struct zt_dynamic *z)
 {
 	/* Unregister span if appropriate */
 	if (z->span.flags & ZT_FLAG_REGISTERED)
@@ -429,7 +405,8 @@ static void dynamic_destroy(struct zt_dynamic *z)
 	checkmaster();
 }
 
-static struct zt_dynamic *find_dynamic(ZT_DYNAMIC_SPAN *zds)
+static struct zt_dynamic *
+find_dynamic(ZT_DYNAMIC_SPAN *zds)
 {
 	struct zt_dynamic *z;
 	z = dspans;
@@ -439,10 +416,11 @@ static struct zt_dynamic *find_dynamic(ZT_DYNAMIC_SPAN *zds)
 			break;
 		z = z->next;
 	}
-	return z;
+	return (z);
 }
 
-static struct zt_dynamic_driver *find_driver(char *name)
+static struct zt_dynamic_driver *
+find_driver(char *name)
 {
 	struct zt_dynamic_driver *ztd;
 	ztd = drivers;
@@ -452,10 +430,11 @@ static struct zt_dynamic_driver *find_driver(char *name)
 			break;
 		ztd = ztd->next;
 	}
-	return ztd;
+	return (ztd);
 }
 
-static int destroy_dynamic(ZT_DYNAMIC_SPAN *zds)
+static int 
+destroy_dynamic(ZT_DYNAMIC_SPAN *zds)
 {
 	unsigned long flags;
 	struct zt_dynamic *z, *cur, *prev=NULL;
@@ -463,13 +442,13 @@ static int destroy_dynamic(ZT_DYNAMIC_SPAN *zds)
 	z = find_dynamic(zds);
 	if (!z) {
 		spin_unlock_irqrestore(&dlock, flags);
-		return -EINVAL;
+		return (-EINVAL);
 	}
 	/* Don't destroy span until it is in use */
 	if (z->usecount) {
 		spin_unlock_irqrestore(&dlock, flags);
 		printk("Attempt to destroy dynamic span while it is in use\n");
-		return -EBUSY;
+		return (-EBUSY);
 	}
 	/* Unlink it */
 	cur = dspans;
@@ -491,30 +470,34 @@ static int destroy_dynamic(ZT_DYNAMIC_SPAN *zds)
 	return (0);
 }
 
-static int ztd_rbsbits(struct zt_chan *chan, int bits)
+static int 
+ztd_rbsbits(struct zt_chan *chan, int bits)
 {
 	/* Don't have to do anything */
-	return 0;
+	return (0);
 }
 
-static int ztd_open(struct zt_chan *chan)
+static int 
+ztd_open(struct zt_chan *chan)
 {
 	struct zt_dynamic *z;
 	z = chan->span->pvt;
 	if (z) {
 		if (z->dead)
-			return -ENODEV;
+			return (-ENODEV);
 		z->usecount++;
 	}
-	return 0;
+	return (0);
 }
 
-static int ztd_chanconfig(struct zt_chan *chan, int sigtype)
+static int 
+ztd_chanconfig(struct zt_chan *chan, int sigtype)
 {
-	return 0;
+	return (0);
 }
 
-static int ztd_close(struct zt_chan *chan)
+static int 
+ztd_close(struct zt_chan *chan)
 {
 	struct zt_dynamic *z;
 	z = chan->span->pvt;
@@ -522,10 +505,11 @@ static int ztd_close(struct zt_chan *chan)
 		z->usecount--;
 	if (z->dead && !z->usecount)
 		dynamic_destroy(z);
-	return 0;
+	return (0);
 }
 
-static int create_dynamic(ZT_DYNAMIC_SPAN *zds)
+static int 
+create_dynamic(ZT_DYNAMIC_SPAN *zds)
 {
 	struct zt_dynamic *z;
 	struct zt_dynamic_driver *ztd;
@@ -535,18 +519,18 @@ static int create_dynamic(ZT_DYNAMIC_SPAN *zds)
 
 	if (zds->numchans < 1) {
 		printk("Can't be less than 1 channel (%d)!\n", zds->numchans);
-		return -EINVAL;
+		return (-EINVAL);
 	}
 	if (zds->numchans >= ZT_DYNAMIC_MAX_CHANS) {
 		printk("Can't create dynamic span with greater than %d channels.  See ztdynamic.c and increase ZT_DYNAMIC_MAX_CHANS\n", zds->numchans);
-		return -EINVAL;
+		return (-EINVAL);
 	}
 
 	spin_lock_irqsave(&dlock, flags);
 	z = find_dynamic(zds);
 	spin_unlock_irqrestore(&dlock, flags);
 	if (z)
-		return -EEXIST;
+		return (-EEXIST);
 
 	/* XXX There is a silly race here.  We check it doesn't exist, but
 	       someone could create it between now and then and we'd end up
@@ -558,14 +542,14 @@ static int create_dynamic(ZT_DYNAMIC_SPAN *zds)
 	/* Allocate memory */
 	z = (struct zt_dynamic *)kmem_zalloc(sizeof(struct zt_dynamic), KM_NOSLEEP);
 	if (!z) 
-		return -ENOMEM;
+		return (-ENOMEM);
 
 	/* Allocate other memories */
 	z->chans_size = sizeof(struct zt_chan) * zds->numchans;
 	z->chans = kmem_zalloc(z->chans_size, KM_NOSLEEP);
 	if (!z->chans) {
 		dynamic_destroy(z);
-		return -ENOMEM;
+		return (-ENOMEM);
 	}
 
 	/* Allocate message buffer with sample space and header space */
@@ -576,7 +560,7 @@ static int create_dynamic(ZT_DYNAMIC_SPAN *zds)
 
 	if (!z->msgbuf) {
 		dynamic_destroy(z);
-		return -ENOMEM;
+		return (-ENOMEM);
 	}
 
 	/* Setup parameters properly assuming we're going to be okay. */
@@ -605,35 +589,14 @@ static int create_dynamic(ZT_DYNAMIC_SPAN *zds)
 	
 	spin_lock_irqsave(&dlock, flags);
 	ztd = find_driver(zds->driver);
-#if 0
-	if (!ztd) {
-		spin_unlock_irqrestore(&dlock, flags);
-		
-		/* Try loading the right module */
-		size_t size = 6 + strlen(zds->driver);
-		char *fn = kmem_zalloc(size, KM_SLEEP);
-		(void) sprintf(fn, "ztd-%s", zds->driver);
-		
-		/* JWB: this isn't a support solaris call, I don't think */
-		if (modload("drv", fn) == -1) {
-			cmn_err(CE_CONT, "modload failed to load %s\n", fn);
-		}
-		
-		kmem_free(fn, size);
-		
-		spin_lock_irqsave(&dlock, flags);
-		ztd = find_driver(zds->driver);
-	}
-#endif
 	spin_unlock_irqrestore(&dlock, flags);
-
 
 	/* Another race -- should let the module get unloaded while we
 	   have it here */
 	if (!ztd) {
 		printk("No such driver '%s' for dynamic span\n", zds->driver);
 		dynamic_destroy(z);
-		return -EINVAL;
+		return (-EINVAL);
 	}
 
 	/* Create the stuff */
@@ -641,7 +604,7 @@ static int create_dynamic(ZT_DYNAMIC_SPAN *zds)
 	if (!z->pvt) {
 		printk("Driver '%s' (%s) rejected address '%s'\n", ztd->name, ztd->desc, z->addr);
 		/* Creation failed */
-		return -EINVAL;
+		return (-EINVAL);
 	}
 
 	/* Remember the driver */
@@ -651,7 +614,7 @@ static int create_dynamic(ZT_DYNAMIC_SPAN *zds)
 	if (zt_register(&z->span, 0)) {
 		printk("Unable to register span '%s'\n", z->span.name);
 		dynamic_destroy(z);
-		return -EINVAL;
+		return (-EINVAL);
 	}
 
 	/* Okay, created and registered. add it to the list */
@@ -663,11 +626,13 @@ static int create_dynamic(ZT_DYNAMIC_SPAN *zds)
 	checkmaster();
 
 	/* All done */
-	return z->span.spanno;
+	return (z->span.spanno);
 
 }
 
-static int ztdynamic_ioctl(int cmd, intptr_t data, int mode)
+static int
+//ztdynamic_ioctl(dev_t dev, int cmd, intptr_t data, int mode, cred_t *credp, int *rvalp)
+ztdynamic_ioctl(int cmd, intptr_t data, int mode)
 {
 	ZT_DYNAMIC_SPAN zds;
 	int res;
@@ -678,7 +643,7 @@ static int ztdynamic_ioctl(int cmd, intptr_t data, int mode)
 		   them */
 		if (!hasmaster)
 			ztdynamic_run();
-		return 0;
+		return (0);
 	case ZT_DYNAMIC_CREATE:
 		ddi_copyin((void *)data, &zds, sizeof(zds), mode);
 		//if (copy_from_user(&zds, (ZT_DYNAMIC_SPAN *)data, sizeof(zds)))
@@ -687,26 +652,26 @@ static int ztdynamic_ioctl(int cmd, intptr_t data, int mode)
 			printk("Dynamic Create\n");
 		res = create_dynamic(&zds);
 		if (res < 0)
-			return res;
+			return (res);
 		zds.spanno = res;
 		/* Let them know the new span number */
 		//if (copy_to_user((ZT_DYNAMIC_SPAN *)data, &zds, sizeof(zds)))
 		//	return -EFAULT;
 		ddi_copyout(&zds, (void *)data, sizeof(zds), mode);
-		return 0;
+		return (0);
 	case ZT_DYNAMIC_DESTROY:
 		ddi_copyin((void *)data, &zds, sizeof(zds), mode);
 		//if (copy_from_user(&zds, (ZT_DYNAMIC_SPAN *)data, sizeof(zds)))
 		//	return -EFAULT;
 		if (debug)
 			printk("Dynamic Destroy\n");
-		return destroy_dynamic(&zds);
+		return (destroy_dynamic(&zds));
 	}
-
-	return -ENOTTY;
+	return (-ENOTTY);
 }
 
-int zt_dynamic_register(struct zt_dynamic_driver *dri)
+int 
+zt_dynamic_register(struct zt_dynamic_driver *dri)
 {
 	unsigned long flags;
 	int res = 0;
@@ -718,10 +683,11 @@ int zt_dynamic_register(struct zt_dynamic_driver *dri)
 		drivers = dri;
 	}
 	spin_unlock_irqrestore(&dlock, flags);
-	return res;
+	return (res);
 }
 
-void zt_dynamic_unregister(struct zt_dynamic_driver *dri)
+void 
+zt_dynamic_unregister(struct zt_dynamic_driver *dri)
 {
 	struct zt_dynamic_driver *cur, *prev=NULL;
 	struct zt_dynamic *z, *zp, *zn;
@@ -762,24 +728,22 @@ void zt_dynamic_unregister(struct zt_dynamic_driver *dri)
 	spin_unlock_irqrestore(&dlock, flags);
 }
 
-static void check_for_red_alarm(void *arg)
+static void 
+check_for_red_alarm(void *arg)
 {
 	unsigned long flags;
 	int newalarm;
 	int alarmchanged = 0;
 	struct zt_dynamic *z;
 	
-	// if (debug) cmn_err(CE_CONT, "Checking for Red Alarms.\n");
-	
 	spin_lock_irqsave(&dlock, flags);
 	z = dspans;
 	while(z) {
 		newalarm = z->span.alarms & ~ZT_ALARM_RED;
 		/* If nothing received for a minute, consider that RED ALARM */
-		if ((gethrtime() - z->rxjif) > 1000000000) {
+		if ((gethrtime() - z->rxjif) > (hrtime_t)60000000000LL) {
 			newalarm |= ZT_ALARM_RED;
 			if (z->span.alarms != newalarm) {
-				if (debug) cmn_err(CE_CONT, "Setting Red Alarm.\n");
 				z->span.alarms = newalarm;
 				zt_alarm_notify(&z->span);
 				alarmchanged++;
@@ -845,42 +809,45 @@ static  struct modlinkage modlinkage = {
     { &modldrv, NULL, NULL, NULL }
 };
 
-int _init(void)
+int 
+_init(void)
 {
     int ret;
 
     ret = ddi_soft_state_init(&ztdynamic_statep, sizeof(struct ztdynamic_state), 1);
 
     if (ret)
-	return ret;
+        return (ret);
 
     if (mod_install(&modlinkage))
     {
       cmn_err(CE_CONT, "zydynamic: _init FAILED");
-      return DDI_FAILURE;
+      return (DDI_FAILURE);
     }
 
-	if (debug) cmn_err(CE_CONT, "ztdynamic init finished.\n");
-    return DDI_SUCCESS;
+	if (debug) cmn_err(CE_CONT, "Ztdynamic _init finished.\n");
+    return (DDI_SUCCESS);
 }
 
-int _info(struct modinfo *modinfop)
+int 
+_info(struct modinfo *modinfop)
 {
-    return mod_info(&modlinkage, modinfop);
+    return (mod_info(&modlinkage, modinfop));
 }
 
-int _fini(void)
+int 
+_fini(void)
 {
     int ret;
 
     if ((ret = mod_remove(&modlinkage)) == 0) {
         ddi_soft_state_fini(&ztdynamic_statep);
     }
-    return ret;
+    return (ret);
 }
 
-static int ztdynamic_getinfo(dev_info_t *dip, ddi_info_cmd_t infocmd,
-              void *arg, void **result)
+static int 
+ztdynamic_getinfo(dev_info_t *dip, ddi_info_cmd_t infocmd, void *arg, void **result)
 {
   int instance;
   struct ztdynamic_state *ztd;
@@ -904,11 +871,11 @@ static int ztdynamic_getinfo(dev_info_t *dip, ddi_info_cmd_t infocmd,
       *result = (void *)(long)instance;
       break;
   }
-
-  return error;
+  return (error);
 }
 
-static int ztdynamic_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
+static int 
+ztdynamic_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 {
     struct ztdynamic_state *ztd;
     int instance, status;
@@ -932,10 +899,9 @@ static int ztdynamic_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 
     instance = ddi_get_instance(dip);
 
-    if (ddi_soft_state_zalloc(ztdynamic_statep, instance) != DDI_SUCCESS)
-    {
+    if (ddi_soft_state_zalloc(ztdynamic_statep, instance) != DDI_SUCCESS) {
       cmn_err(CE_CONT, "ztdynamic%d: Failed to alloc soft state", instance);
-      return DDI_FAILURE;
+      return (DDI_FAILURE);
     }
 
     /* Get pointer to that memory */
@@ -943,7 +909,7 @@ static int ztdynamic_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
     if (ztd == NULL) {
 	    cmn_err(CE_CONT, "ztdynamic: Unable to allocate memory\n");
 	    ddi_soft_state_free(ztdynamic_statep, instance);
-	    return DDI_FAILURE;
+	    return (DDI_FAILURE);
     }
 
     ztd->dip = dip;
@@ -952,7 +918,7 @@ static int ztdynamic_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	if (debug) cmn_err(CE_CONT, "Initializing mutex.\n");
 	spin_lock_init(&dlock);
 	
-    /* Setup a high-resolution timer using an undocumented API */
+    /* Setup a high-resolution timer using an undocumented API - May bust! */
     hdlr.cyh_func = check_for_red_alarm;
     hdlr.cyh_arg = 0;
     hdlr.cyh_level = CY_LOW_LEVEL;
@@ -967,10 +933,11 @@ static int ztdynamic_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
 	zt_set_dynamic_ioctl(ztdynamic_ioctl);
 	
     cmn_err(CE_CONT, "Zaptel Dynamic Span support LOADED\n");
-    return 0;
+    return (0);
 }
 
-static int ztdynamic_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
+static int 
+ztdynamic_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
 {
     int instance;
     struct ztdynamic_state *ztd;
@@ -980,7 +947,7 @@ static int ztdynamic_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
     ztd = ddi_get_soft_state(ztdynamic_statep, instance);
     if (ztd == NULL) {
         cmn_err(CE_CONT, "ztdynamic%d: detach, failed to get soft state", instance);
-        return DDI_FAILURE;
+        return (DDI_FAILURE);
     }
 
 	/* Try to shutdown any open lines */
@@ -989,15 +956,10 @@ static int ztdynamic_detach(dev_info_t *dip, ddi_detach_cmd_t cmd)
     mutex_enter(&cpu_lock);
     cyclic_remove(ztd->cyclic);
     mutex_exit(&cpu_lock);
-    if (debug) {
-        cmn_err(CE_CONT, "Removed timer.\n");
-    }
 	
 	/* Remove Mutex */
 	mutex_destroy(&dlock);
-    if (debug) {
-        cmn_err(CE_CONT, "Destroyed mutex dlock\n");
-    }
 
-    return DDI_SUCCESS;
+    return (DDI_SUCCESS);
 }
+

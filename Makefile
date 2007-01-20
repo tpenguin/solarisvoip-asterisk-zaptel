@@ -17,6 +17,16 @@ VERSION	= $(shell pkgparam SUNWcsr SUNW_PRODVERS | cut -d/ -f1)
 PKGARCHIVE = $(shell pwd)/$(shell uname -s)-$(shell uname -r).$(shell uname -m)
 PACKAGES=SVzaptel SVztdummy SVwctdm
 MODULES = libtonezone.so libpri zaptel ztdummy wctdm wcte11xp ztcfg zttest ztdiag 
+ILOC = /platform/$(PROC)/kernel/drv
+ifeq ($(ISABITS),64)
+	ifeq ($(ISA),i386)
+		ILOCDRV = $(ILOC)/amd64
+	else
+		ILOCDRV = $(ILOC)/sparcv9
+	endif
+else
+	ILOCDRV = $(ILOC)
+endif
 
 ifneq ($(wildcard /usr/include/newt.h),)
 	MODULES+=zttool
@@ -39,7 +49,7 @@ DEBUG=-g  # -g -pg -DCONFIG_ZAPATA_DEBUG
 
 export OPTIMIZE DEBUG
 
-CFLAGS= $(DEBUG) -DSOLARIS -D_KERNEL -DECHO_CAN_MARK2 -I. $(OPTIMIZE)
+CFLAGS= $(DEBUG) -DDEBUG -DSOLARIS -D_KERNEL -D_SYSCALL32 -D_SYSCALL32_IMPL -DECHO_CAN_MARK2 -I. $(OPTIMIZE)
 ifeq ($(ISABITS),64)
 	CFLAGS+=-m64 
 endif
@@ -79,6 +89,9 @@ ztdynamic: ztdynamic.o
 
 ztd-eth: ztd-eth.o
 	ld -r -o ztd-eth ztd-eth.o
+
+zapadm: zapadm.c
+	gcc -g -o zapadm zapadm.c
 
 ztdummy: ztdummy.o
 	ld -r -o ztdummy ztdummy.o
@@ -145,13 +158,24 @@ ztmonitor.o: ztmonitor.c
 ztmonitor: ztmonitor.o
 	$(CC) -o ztmonitor ztmonitor.o
 
-install: zaptel
-	cp zaptel /tmp
-	cp ztdummy /tmp
-	-rem_drv ztdummy
+
+# Install zaptel, dynamic, and the ethernet driver
+
+install: zaptel ztdynamic ztd-eth zapadm
+	rm -f $(ILOCDRV)/zaptel
+	rm -f $(ILOCDRV)/ztdynamic
+	cp zaptel $(ILOCDRV)/zaptel
+	cp zaptel.conf $(ILOC)
+	cp ztdynamic $(ILOCDRV)/ztdynamic
+	cp ztdynamic.conf $(ILOC)
+	cp ztd-eth $(ILOCDRV)
+	cp ztd-eth.conf $(ILOC)
+	-rem_drv ztd-eth
+	-rem_drv ztdynamic
 	-rem_drv zaptel
 	add_drv -v -f zaptel
-	add_drv -v -f ztdummy
+	add_drv -v -f ztdynamic
+	add_drv -v -f ztd-eth
 
 installdyn: ztdynamic
 	rm -f /usr/kernel/drv/sparcv9/ztdynamic

@@ -152,7 +152,7 @@ static inline unsigned int crc_ccitt_byte(unsigned int crc, const unsigned char 
         return (crc >> 8) ^ fcstab[(crc ^ c) & 0xff];
 }
 
-static int debug = 1;
+static int debug = 0;
 
 /* states for transmit signalling */
 typedef enum {ZT_TXSTATE_ONHOOK,ZT_TXSTATE_OFFHOOK,ZT_TXSTATE_START,
