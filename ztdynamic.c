@@ -401,8 +401,6 @@ dynamic_destroy(struct zt_dynamic *z)
 
 	/* Free z */
 	kmem_free(z, sizeof(z));
-
-	checkmaster();
 }
 
 static struct zt_dynamic *
@@ -924,7 +922,7 @@ ztdynamic_attach(dev_info_t *dip, ddi_attach_cmd_t cmd)
     hdlr.cyh_level = CY_LOW_LEVEL;
 
     when.cyt_when = 0;
-    when.cyt_interval = 1000000000; /* every 1s */
+    when.cyt_interval = 30000000000LL; /* every 1s */
 
     mutex_enter(&cpu_lock); 
     ztd->cyclic = cyclic_add(&hdlr, &when);
