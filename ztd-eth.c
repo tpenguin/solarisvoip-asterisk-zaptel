@@ -835,8 +835,11 @@ zdethmod_inproto(queue_t *q, mblk_t *mp)
             }
 #endif
 
+#ifndef __sparc
 #   define ZTDETH_HTONS 0x0DD0
-
+#else
+#   define ZTDETH_HTONS 0xD00D 
+#endif
 
             if (eh && eh->ether_type == ZTDETH_HTONS && len > sizeof(struct ztdeth_header)) {
                 struct zt_span *span;
@@ -1112,10 +1115,18 @@ ztdeth_transmit_frame(queue_t *q, unsigned char *daddr, char *msg, int msglen, u
 
     bcopy((caddr_t)daddr, (caddr_t)mb->b_wptr, 6);
     mb->b_wptr += 6;
+
+#ifdef __sparc
+    *((unsigned char *)mb->b_wptr) = 0xd0;
+    mb->b_wptr += 1;
+    *((unsigned char *)mb->b_wptr) = 0x0d;
+    mb->b_wptr += 1;
+#else
     *((unsigned char *)mb->b_wptr) = 0x0d;
     mb->b_wptr += 1;
     *((unsigned char *)mb->b_wptr) = 0xd0;
     mb->b_wptr += 1;
+#endif
     
     mbd = allocb(msglen + sizeof (struct ztdeth_header), BPRI_MED);
     if (mbd == NULL) {

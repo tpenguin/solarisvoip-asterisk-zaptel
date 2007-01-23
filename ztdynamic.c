@@ -353,7 +353,11 @@ zt_dynamic_receive(struct zt_span *span, unsigned char *msg, int msglen)
 	
 	/* Record data for channels */
 	for (x=0;x<nchans;x++) {
-		memcpy(span->chans[x].readchunk, msg, ZT_CHUNKSIZE);
+        if (span->chans[x].readchunk != NULL) {
+    		memcpy(span->chans[x].readchunk, msg, ZT_CHUNKSIZE);
+        } else {
+            cmn_err(CE_CONT, "Tried to access invalid channel %d readchunk.\n", x);
+        }
 		msg += ZT_CHUNKSIZE;
 	}
 
