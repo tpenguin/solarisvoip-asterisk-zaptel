@@ -5182,7 +5182,7 @@ int zt_transmit(struct zt_span *span)
 		cmn_err(CE_CONT, "zt_transmit: span is null");
 		return (0);
 	}
-#if 1
+
 	for (x=0;x<span->channels;x++) {
 		mutex_enter(&span->chans[x].lock);
 		if (&span->chans[x] == span->chans[x].master) {
@@ -5240,7 +5240,7 @@ int zt_transmit(struct zt_span *span)
 			cv_broadcast(&span->maintq);
 		}
 	}
-#endif
+
 	return 0;
 }
 
@@ -5253,7 +5253,7 @@ int zt_receive(struct zt_span *span)
 		cmn_err(CE_CONT, "zt_receive: span is null");
 		return (0);
 	}
-#if 1
+
 #ifdef CONFIG_ZAPTEL_WATCHDOG
 	span->watchcounter--;
 #endif	
@@ -5392,7 +5392,7 @@ int zt_receive(struct zt_span *span)
 		}
 		mutex_exit(&bigzaplock);			
 	}
-#endif
+
 	return 0;
 }
 
