@@ -290,6 +290,12 @@ zt_dynamic_receive(struct zt_span *span, unsigned char *msg, int msglen)
 	msg++;
 	
 	rxpos = ntohs(*((unsigned short *)msg));
+    if (rxpos <= ztd->rxcnt && !(rxpos == 0x0000 && ztd->rxcnt == 0xFFFF)) {
+        spin_unlock_irqrestore(&dlock, flags);
+        //cmn_err(CE_CONT, "Span %s: Expected a larger rxcnt than %x, but got %x\n", span->name, ztd->rxcnt, rxpos);
+        return;
+    }
+    ztd->rxcnt = rxpos;
 	msg++;
 	msg++;
 	

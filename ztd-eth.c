@@ -1099,13 +1099,13 @@ ztdeth_transmit_frame(queue_t *q, unsigned char *daddr, char *msg, int msglen, u
         return (-2);
     }
 
-    mb = allocb(DL_UNITDATA_REQ_SIZE + 8, BPRI_MED);
+    mb = allocb(DL_UNITDATA_REQ_SIZE + 8, BPRI_HI);
     if (mb == NULL) {
         cmn_err(CE_CONT, "Major problem, mb alloc failed.\n");
         return (-1);
     }
 
-    MTYPE(mb) = M_PROTO;
+    MTYPE(mb) = M_PCPROTO;
     mb->b_wptr += DL_UNITDATA_REQ_SIZE;
     udr = (dl_unitdata_req_t *)mb->b_rptr;
     udr->dl_primitive = DL_UNITDATA_REQ;
@@ -1128,7 +1128,7 @@ ztdeth_transmit_frame(queue_t *q, unsigned char *daddr, char *msg, int msglen, u
     mb->b_wptr += 1;
 #endif
     
-    mbd = allocb(msglen + sizeof (struct ztdeth_header), BPRI_MED);
+    mbd = allocb(msglen + sizeof (struct ztdeth_header), BPRI_HI);
     if (mbd == NULL) {
         cmn_err(CE_CONT, "Major problem, mbd alloc failed.\n");
         freemsg(mb);
