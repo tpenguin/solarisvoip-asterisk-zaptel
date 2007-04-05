@@ -57,9 +57,7 @@
 /* we depend on these drivers to operate */
 char _depends_on[] = "drv/ip drv/zaptel drv/ztdynamic";
 
-static struct module_info zdeth_minfo = {
-	0x666b, "ztd-eth", 0, INFPSZ, 0, 0
-};
+
 
 static queue_t *global_queue = NULL;
 static int debug = 0;
@@ -104,8 +102,10 @@ static dev_info_t *zdeth_dev_info = NULL;
 /**
  * Minor node number allocations
  */
+/*
 static uint_t ztdeth_max_minors;
 static vmem_t *ztdeth_drv_minors;
+*/
 
 /*                                                              
  * List of streams on which ztdeth is plumbed                                                                
@@ -116,18 +116,20 @@ static kmutex_t ztdeth_mod_lock;
 static int zdethdevopen(queue_t *, dev_t *, int, int, cred_t *);
 static int zdethdevclose(queue_t *, int, cred_t *);
 
+/*
 static struct qinit zdeth_rinit = {
 	NULL, NULL, zdethdevopen, zdethdevclose, NULL, &zdeth_minfo, NULL
 };
 
 static struct qinit zdeth_winit = {
-	/* zdethwput */ NULL, NULL, NULL, NULL, NULL, &zdeth_minfo, NULL
+	//zdethwput
+    NULL, NULL, NULL, NULL, NULL, &zdeth_minfo, NULL
 };
 
 struct streamtab zteth_dev_strtab = {
 	&zdeth_rinit, &zdeth_winit, NULL, NULL
 };
-
+*/
 
 struct zt_span *ztdeth_getspan(unsigned char *addr, unsigned short subaddr);
 static int zdeth_getinfo(dev_info_t *dip, ddi_info_cmd_t infocmd, void *arg,
@@ -187,6 +189,8 @@ zdethmodlwput(queue_t *wq, mblk_t *mp)
 	freemsg(mp);
 }
 
+static struct streamtab zdethmod_strtab;
+
 static struct cb_ops zdeth_ops = {
 	nulldev,	        /* cb_open */
 	nulldev,	        /* cb_close */
@@ -202,7 +206,7 @@ static struct cb_ops zdeth_ops = {
 	nochpoll,	        /* cb_chpoll */
 	ddi_prop_op,        /* cb_prop_op */
 	&zdethmod_strtab,	/* cb_stream */
-	D_NEW | D_MP | D_MTQPAIR | D_MTOUTPERIM | D_MTOCEXCL | D_MTPUTSHARED		/* cb_flag */
+	(D_NEW | D_MP)		/* cb_flag */
 };
 
 static struct dev_ops zdeth_devops = {
@@ -224,6 +228,15 @@ static struct modldrv modldrv = {
     &zdeth_devops
 };
 
+static struct module_info zdeth_minfo = {
+	0x666b, 
+    "ztd-eth", 
+    0, 
+    INFPSZ, 
+    0, 
+    0
+};
+
 static struct qinit zdethmod_rinit = {
 	(pfi_t)zdethmodrput, NULL, zdethmodopen, zdethmodclose,
 	NULL, &zdeth_minfo, NULL
@@ -235,7 +248,7 @@ static struct qinit zdethmod_winit = {
 };
 
 static struct qinit zdethmod_lrinit = {
-    (pfi_t)zdethmodlrput, NULL, zdethmodopen, zdethmodclose,
+    (pfi_t)zdethmodlrput, NULL, /*zdethmodopen*/ NULL, /*zdethmodclose*/ NULL,
     NULL, &zdeth_minfo
 };
 
@@ -254,7 +267,7 @@ static struct streamtab zdethmod_strtab = {
 static struct fmodsw fsw = {
 	"ztd-eth", 
     &zdethmod_strtab, 
-    D_NEW | D_MP | D_MTQPAIR | D_MTOUTPERIM | D_MTOCEXCL | D_MTPUTSHARED
+    (D_NEW | D_MP)
 };
 
 static struct modlstrmod modlstrmod = {
@@ -267,7 +280,6 @@ static struct modlinkage modlinkage = {
 	MODREV_1,
     (void *)&modlstrmod,
     (void *)&modldrv,
-    NULL
 };
 
 static int zdeth_attach(dev_info_t *devi, ddi_attach_cmd_t cmd)
@@ -275,7 +287,8 @@ static int zdeth_attach(dev_info_t *devi, ddi_attach_cmd_t cmd)
 	if (cmd != DDI_ATTACH)
 		return (DDI_FAILURE);
 
-    if (debug) cmn_err(CE_CONT, "zdeth_attach\n");
+    //if (debug) 
+        cmn_err(CE_CONT, "zdeth_attach\n");
     if (ddi_create_minor_node(devi, "ztdeth", S_IFCHR, 0, "ddi_zaptel",
         CLONE_DEV) == DDI_FAILURE) {
         ddi_remove_minor_node(devi, NULL);
@@ -293,7 +306,8 @@ zdeth_detach(dev_info_t *devi, ddi_detach_cmd_t cmd)
 	if (cmd != DDI_DETACH)
 		return (DDI_FAILURE);
 
-    if (debug) cmn_err(CE_CONT, "zdeth_detach\n");
+    // if (debug) 
+    cmn_err(CE_CONT, "zdeth_detach\n");
 	zt_dynamic_unregister(&ztd_eth);
 	ddi_remove_minor_node(devi, NULL);
 	return (DDI_SUCCESS);
@@ -326,7 +340,8 @@ zdethdevopen(queue_t *q, dev_t *devp, int oflag, int sflag, cred_t *crp)
 {
 	int result = 0;
 
-    if (debug) cmn_err(CE_CONT, "devopen!\n");
+    //if (debug) 
+        cmn_err(CE_CONT, "devopen!\n");
 	if ((sflag & MODOPEN) != 0)
 		result = ENXIO;
 	if (result == 0)
@@ -337,11 +352,13 @@ zdethdevopen(queue_t *q, dev_t *devp, int oflag, int sflag, cred_t *crp)
 static int 
 zdethdevclose(queue_t *q, int flag, cred_t *crp)
 {
-    if (debug) cmn_err(CE_CONT, "devclose!\n");
+    //if (debug) 
+        cmn_err(CE_CONT, "devclose!\n");
 	qprocsoff(q);
 	return (0);
 }
 
+/*
 static mblk_t *
 zdeth_dlpi_comm(t_uscalar_t prim, size_t size)
 {
@@ -364,7 +381,8 @@ zdeth_dlpi_send(queue_t *q, mblk_t *mp)
 {
 	putnext(q, mp);
 }
-	
+*/
+
 static int 
 zdethmodopen(queue_t *rq, dev_t *devp, int oflag, int sflag, cred_t *credp)
 {
@@ -393,38 +411,32 @@ zdethmodopen(queue_t *rq, dev_t *devp, int oflag, int sflag, cred_t *credp)
     } else {
         if (debug) cmn_err(CE_CONT, "sflags not MODOPEN\n");
         ztdeth_drv_t *drvp;
-        minor_t minor;
+        static minor_t minor = 0;
 
         drvp = kmem_zalloc(sizeof (*drvp), KM_NOSLEEP);
         if (drvp == NULL)
             return (ENOMEM);
-        minor = (minor_t)(uintptr_t)vmem_alloc(ztdeth_drv_minors, 1, VM_NOSLEEP);
-        if (minor == 0) {
-            void *vaddr;
 
-            vaddr = vmem_add(ztdeth_drv_minors,
-              (void *)((uintptr_t)ztdeth_max_minors + 1),
-              10, VM_NOSLEEP);
-            if (vaddr != NULL) {
-                ztdeth_max_minors += 10;
-                minor = (minor_t)(uintptr_t)vmem_alloc(ztdeth_drv_minors, 1, VM_NOSLEEP);
-            }
-            if (minor == 0) {
-                kmem_free(drvp, sizeof(*drvp));
-                return (ENOMEM);
-            }
-        }
+        // Lock us because of the static minor_t variable
+        mutex_enter(&ztdeth_mod_lock);
+
         drvp->md_flags = MD_ISDRIVER;
         drvp->md_dlstate = DL_UNATTACHED;
         drvp->md_rq = rq;
         drvp->md_minor = minor;
         rq->q_ptr = wq->q_ptr = drvp;
-        if (debug) cmn_err(CE_CONT, "Major device is %d\n", minor);
+        
         *devp = makedevice(getmajor(*devp), minor);
+
+        if (debug) cmn_err(CE_CONT, "Major device is %d\n", minor++);
+
+        mutex_exit(&ztdeth_mod_lock);
+
     }
 	qprocson(rq);
 	
-	if (debug) cmn_err(CE_CONT, "zdethmodopen\n");
+	//if (debug) 
+        cmn_err(CE_CONT, "zdethmodopen\n");
 	return (0);
 }
 
@@ -441,8 +453,7 @@ zdethmodclose(queue_t *rq, int flag, cred_t *crp)
 
     if (drvp->md_flags & MD_ISDRIVER) {
         qprocsoff(rq);
-        if (ztdeth_drv_minors != NULL && drvp->md_minor != NULL)
-            vmem_free(ztdeth_drv_minors, (void *)(uintptr_t)drvp->md_minor, 1);
+
         kmem_free(drvp, sizeof (*drvp));
     } else {
         ztdeth_mod_t *modp = (ztdeth_mod_t *)drvp;
@@ -450,7 +461,8 @@ zdethmodclose(queue_t *rq, int flag, cred_t *crp)
         kmem_free(modp, sizeof (*modp));
     }
 
-	if (debug) cmn_err(CE_CONT, "zdethmodclose\n");
+	//if (debug) 
+        cmn_err(CE_CONT, "zdethmodclose\n");
 	return (0);
 }
 
@@ -465,22 +477,19 @@ _init(void)
     cmn_err(CE_CONT, "Zaptel Ethernet STREAMS and Module Driver\n");
 
     if (mod_is_init == 0) {
-        ztdeth_max_minors = 10;
-        ztdeth_drv_minors = vmem_create("ztdeth_minor", (void *)1, 
-                                        ztdeth_max_minors, 1, NULL,
-                                        NULL, NULL, 0, VM_SLEEP | VMC_IDENTIFIER);
-        if (ztdeth_drv_minors == NULL) {
-            return (ENOMEM);
-        }
+
         list_create(&ztdeth_mod_list, sizeof (ztdeth_mod_t),
                     offsetof (ztdeth_mod_t, mm_node));
         mutex_init(&ztdeth_mod_lock, NULL, MUTEX_DRIVER, NULL);
         mod_is_init = 1;
+    } else {
+
+        cmn_err(CE_CONT, "DUPLICATE _init CALL.\n");
     }
 	if (mod_install(&modlinkage) != DDI_SUCCESS) {
         cmn_err(CE_CONT, "mod_install failed.\n");
         if (mod_is_init == 1) {
-            vmem_destroy(ztdeth_drv_minors);
+
             mutex_destroy(&ztdeth_mod_lock);
             list_destroy(&ztdeth_mod_list);
             mod_is_init = 0;
@@ -496,12 +505,11 @@ _fini(void)
     cmn_err(CE_CONT, "Zaptel Ethernet STREAMS and Module Driver Unloaded\n");
 
     if (mod_is_init == 1) {
-        if (ztdeth_drv_minors != NULL) {
-            vmem_destroy(ztdeth_drv_minors);
-        }
         mutex_destroy(&ztdeth_mod_lock);
         list_destroy(&ztdeth_mod_list);
         mod_is_init = 0;
+    } else {
+        cmn_err(CE_CONT, "DUPLICATE _fini CALL\n");
     }
 	return (mod_remove(&modlinkage));
 }
@@ -589,11 +597,14 @@ zdethmodwput(queue_t *q, mblk_t *mp)
         break;
 
     default:
+        /*
 		if (drvp->md_flags & MD_ISDRIVER) {
             freemsg(mp);
         } else {
             putnext(q, mp);
         }
+        */
+        freemsg(mp);
         break;
 	}
 }
@@ -610,9 +621,7 @@ zdethmod_ioctl(queue_t *q, mblk_t *mp)
     switch (ioc->ioc_cmd) {
     case I_LINK:
     case I_PLINK:
-    case I_UNLINK:
-    case I_PUNLINK:
-        if (debug) cmn_err(CE_CONT, "Processing LINK/UNLINK\n");
+        cmn_err(CE_CONT, "Processing LINK\n");
         if ((newmp = copymsg(mp)) == NULL) {
             miocnak(q, mp, 0, ENOMEM);
         } else {
@@ -627,6 +636,13 @@ zdethmod_ioctl(queue_t *q, mblk_t *mp)
 
             miocack(q, mp, 0, 0);
         }
+        break;
+
+    case I_UNLINK:
+    case I_PUNLINK:
+        cmn_err(CE_CONT, "Processing UNLINK\n");
+        global_queue = NULL;
+        miocack(q, mp, 0, 0);
         break;
 
     case ZTDIOC_SETID:
@@ -851,16 +867,19 @@ zdethmod_inproto(queue_t *q, mblk_t *mp)
 
                     if (span != NULL) {
                         zt_dynamic_receive(span, (unsigned char *)zh + sizeof(struct ztdeth_header), len - sizeof(struct ztdeth_header));
-                        handled = 1;
                     }
                 }
+                freemsg(mp);
+                handled++;
             }
         }
     }
-    if (handled == 1)
-        freemsg(mp);
-    else
+    if (handled <= 0) {
         putnext(q, mp);
+    }
+    if (handled > 1) {
+        cmn_err(CE_CONT, "Multipacket frames\n");
+    }
 }
 
 void 
@@ -1105,7 +1124,7 @@ ztdeth_transmit_frame(queue_t *q, unsigned char *daddr, char *msg, int msglen, u
         return (-1);
     }
 
-    MTYPE(mb) = M_PCPROTO;
+    MTYPE(mb) = M_PROTO;
     mb->b_wptr += DL_UNITDATA_REQ_SIZE;
     udr = (dl_unitdata_req_t *)mb->b_rptr;
     udr->dl_primitive = DL_UNITDATA_REQ;

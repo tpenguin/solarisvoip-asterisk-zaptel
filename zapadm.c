@@ -420,12 +420,14 @@ ztdeth_plumb(int argc, char **argv)
 		dlstyle = DL_STYLE2;
 	}
 
+#if 0 == 1
 	if (!driver_attach(dfd, dlstyle, ppa, intf, B_FALSE, istunnel))
 		return (1);
 
 	/* Tunnel ingress (bridging) interfaces need just one stream */
 	if (istunnel)
 		return (0);
+#endif
 
 	if ((dfd = open_dev(drv)) == -1) {
 		perror(drv);
@@ -449,7 +451,7 @@ ztdeth_unplumb(int argc, char **argv)
 		return (1);
 	}
 	did_mcast = unplumb_instance(argv[1], B_TRUE);
-	did_ucast = unplumb_instance(argv[1], B_FALSE);
+	//did_ucast = unplumb_instance(argv[1], B_FALSE);
 	/*
 	 * It's ok for the stream to be plumbed for unicast only.  That
 	 * represents tunnel ingress (bridging) streams.
