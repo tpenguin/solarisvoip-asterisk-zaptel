@@ -2,9 +2,9 @@
 # (C) 2006 Thralling Penguin LLC. All rights reserved.
 #
 
-all: $(PKGSRCS) $(COMMONSRCS) $(PKGARCHIVE) pkginfo
+all: $(PKGSRCS) $(COMMONSRCS) $(PKGARCHIVE) pkginfo svnver
 	$(PKGMK) -a $(ARCH) -d $(PKGARCHIVE) -f prototype_$(ARCH) TOP=$(TOP)
-	$(PKGTRANS) -s $(PKGARCHIVE) $(PKGNAME)-$(ARCH)-$(VERSION).pkg $(PKGNAME)
+	$(PKGTRANS) -s $(PKGARCHIVE) $(PKGNAME)-`cat .version`-$(PKGARCH)-$(VERSION).pkg $(PKGNAME)
 
 $(PKGARCHIVE):
 	test -d $@ || $(MKDIR) $@
@@ -17,4 +17,6 @@ pkginfo: pkginfo_src
 	sed -e 's/<version>/$(VER),REV=$(REV)/' pkginfo_src | \
 	sed -e 's/<arch>/$(ARCH)/' > $@
 
+svnver:
+	echo "rev`svn info | grep Revision | awk '{ print $$2 }'`" >.version
 

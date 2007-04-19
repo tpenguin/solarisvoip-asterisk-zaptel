@@ -21,11 +21,18 @@ ILOC = /platform/$(PROC)/kernel/drv
 ifeq ($(ISABITS),64)
 	ifeq ($(ISA),i386)
 		ILOCDRV = $(ILOC)/amd64
+		PKGARCH=x64
 	else
 		ILOCDRV = $(ILOC)/sparcv9
+		PKGARCH=sparc
 	endif
 else
 	ILOCDRV = $(ILOC)
+	ifeq ($(PROC),sun4u)
+		PKGARCH=sparc
+	else
+		PKGARCH=x86
+	endif
 endif
 
 ifneq ($(wildcard /usr/include/newt.h),)
@@ -34,7 +41,7 @@ ifneq ($(wildcard /usr/include/newt.h),)
 endif
 MODULES+= timertest ztmonitor package
 
-export VER REV ISA PKGMK PKGADD PKGRM MKDIR ARCH VERSION PKGARCHIVE PKGTRANS
+export VER REV ISA PKGMK PKGADD PKGRM MKDIR ARCH VERSION PKGARCHIVE PKGTRANS PKGARCH
 
 #Tell gcc to optimize the code
 #
