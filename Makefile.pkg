@@ -3,7 +3,7 @@
 #
 
 all: $(PKGSRCS) $(COMMONSRCS) $(PKGARCHIVE) pkginfo svnver
-	$(PKGMK) -a $(ARCH) -d $(PKGARCHIVE) -f prototype_$(ARCH) TOP=$(TOP)
+	$(PKGMK) -a $(ARCH) -d $(PKGARCHIVE) -f prototype_$(PKGARCH) TOP=$(TOP)
 	$(PKGTRANS) -s $(PKGARCHIVE) $(PKGNAME)-`cat .version`-$(PKGARCH)-$(VERSION).pkg $(PKGNAME)
 
 $(PKGARCHIVE):
