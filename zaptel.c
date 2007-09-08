@@ -718,7 +718,7 @@ static void close_channel(struct zt_chan *chan)
 	ec = chan->ec;
 	chan->ec = NULL;
 	chan->curtone = NULL;
-	chan->curzone = NULL;
+	chan->current_zone = NULL;
 	chan->cadencepos = 0;
 	chan->pdialcount = 0;
 	zt_hangup(chan); 
@@ -830,10 +830,10 @@ static int start_tone(struct zt_chan *chan, int tone)
 	/* Just wanted to stop the tone anyway */
 	if (tone < 0)
 		return 0;
-	if (chan->curzone) {
+	if (chan->current_zone) {
 		/* Have a tone zone */
-		if (chan->curzone->tones[tone]) {
-			chan->curtone = chan->curzone->tones[tone];
+		if (chan->current_zone->tones[tone]) {
+			chan->curtone = chan->current_zone->tones[tone];
 			res = 0;
 		} else	/* Indicate that zone is loaded but no such tone exists */
 			res = ENOSYS;
@@ -856,9 +856,9 @@ static int set_tone_zone(struct zt_chan *chan, int zone)
 		zone = default_zone;
 	}
 	if (tone_zones[zone]) {
-		chan->curzone = tone_zones[zone];
+		chan->current_zone = tone_zones[zone];
 		chan->tonezone = zone;
-		bcopy(chan->curzone->ringcadence, chan->ringcadence, sizeof(chan->ringcadence));
+		bcopy(chan->current_zone->ringcadence, chan->ringcadence, sizeof(chan->ringcadence));
 	} else {
 		res = ENODATA;
 	}
@@ -1523,9 +1523,9 @@ static int initialize_channel(struct zt_chan *chan)
 		chan->flags &= ~(ZT_FLAG_PPP | ZT_FLAG_FCS | ZT_FLAG_HDLC);
 
 	chan->flags &= ~ZT_FLAG_LINEAR;
-	if (chan->curzone) {
+	if (chan->current_zone) {
 		/* Take cadence from tone zone */
-		bcopy(chan->curzone->ringcadence, chan->ringcadence, sizeof(chan->ringcadence));
+		bcopy(chan->current_zone->ringcadence, chan->ringcadence, sizeof(chan->ringcadence));
 	} else {
 		/* Do a default */
 		bzero(chan->ringcadence, sizeof(chan->ringcadence));
@@ -2268,7 +2268,7 @@ static int zt_common_ioctl(dev_t dev, int cmd, intptr_t data, int mode, cred_t *
 		chan->flashtime = stack.param.flashtime;
 		chan->starttime = stack.param.starttime;
 		/* Update ringtime if not using a tone zone */
-		if (!chan->curzone)
+		if (!chan->current_zone)
 			chan->ringcadence[0] = chan->starttime;
 		chan->rxwinktime = stack.param.rxwinktime;
 		chan->rxflashtime = stack.param.rxflashtime;
@@ -2393,8 +2393,8 @@ static int zt_common_ioctl(dev_t dev, int cmd, intptr_t data, int mode, cred_t *
 			mychan.blocksize, mychan.numbufs, mychan.txbufpolicy, mychan.rxbufpolicy);
 		cmn_err(CE_CONT, "txdisable: %d, rxdisable: %d, iomask: %d\n",
 			mychan.txdisable, mychan.rxdisable, mychan.iomask);
-		cmn_err(CE_CONT, "curzone: %08lx, tonezone: %d, curtone: %08lx, tonep: %d\n",
-			(long) mychan.curzone, mychan.tonezone, (long) mychan.curtone, mychan.tonep);
+		cmn_err(CE_CONT, "current_zone: %08lx, tonezone: %d, curtone: %08lx, tonep: %d\n",
+			(long) mychan.current_zone, mychan.tonezone, (long) mychan.curtone, mychan.tonep);
 		cmn_err(CE_CONT, "digitmode: %d, txdialbuf: %s, dialing: %d, aftdialtimer: %d, cadpos. %d\n",
 			mychan.digitmode, mychan.txdialbuf, mychan.dialing,
 				mychan.afterdialingtimer, mychan.cadencepos);
@@ -3001,7 +3001,7 @@ static int zt_chanandpseudo_ioctl(dev_t dev, int cmd, intptr_t data, int mode, c
 		return rv;
 	case ZT_GETTONEZONE:
 		mutex_enter(&chan->lock);
-		if (chan->curzone)
+		if (chan->current_zone)
 			rv = chan->tonezone;
 		else
 			rv = default_zone;
@@ -3222,8 +3222,8 @@ static int zt_chanandpseudo_ioctl(dev_t dev, int cmd, intptr_t data, int mode, c
 		} else {
 			/* Reset to default */
 			chan->firstcadencepos = 0;
-			if (chan->curzone) {
-				bcopy(chan->curzone->ringcadence, chan->ringcadence, sizeof(chan->ringcadence));
+			if (chan->current_zone) {
+				bcopy(chan->current_zone->ringcadence, chan->ringcadence, sizeof(chan->ringcadence));
 				/* Looking for negative ringing time indicating where to loop back into ringcadence */
 				for (i=0; i<ZT_MAX_CADENCE; i+=2 ) {
 					if (chan->ringcadence[i]<0) {
@@ -4251,7 +4251,7 @@ static inline void __rbs_otimer_expire(struct zt_chan *chan)
 
 		if (!len) {
 			chan->cadencepos = 0;
-			len = chan->curzone->ringcadence[chan->cadencepos];
+			len = chan->current_zone->ringcadence[chan->cadencepos];
 		}
 
 		zt_rbs_sethook(chan, ZT_TXSIG_OFFHOOK, ZT_TXSTATE_RINGOFF, len);

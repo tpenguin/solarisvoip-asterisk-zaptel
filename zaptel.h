@@ -977,7 +977,7 @@ struct zt_chan {
 	
 	
 	/* Tone zone stuff */
-	struct zt_zone *curzone;		/* Zone for selecting tones */
+	struct zt_zone *current_zone;		/* Zone for selecting tones */
 	int 	tonezone;				/* Tone zone for this channel */
 	struct zt_tone *curtone;		/* Current tone we're playing (if any) */
 	int		tonep;					/* Current position in tone */
