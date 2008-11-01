@@ -47,6 +47,11 @@ then
 	# 2.6 and earlier lack the SUNW_ prefix
 	rversion=`pkgparam $reloc SUNWcsr PRODVERS | cut -d/ -f1`
 fi
+# OpenSolaris seems to have broke the above methods
+if [ -z "$rversion" ]
+then
+	rversion=`uname -r`
+fi
 if [ -n $rversion ]
 then
 	VERSION=$rversion
