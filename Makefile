@@ -2,6 +2,7 @@
 # (C) 2006 Thralling Penguin LLC. All rights reserved.
 #
 CC	= gcc
+LD	= ld
 VER	= 1.0
 REV	= $(shell date +'%Y.%m.%d.%H.%M')
 PKGMK	= pkgmk -o
@@ -89,28 +90,28 @@ libpri: zaptel
 	( cd libpri; $(MAKE) )
 
 zaptel:	zaptel.o
-	ld -r -o zaptel zaptel.o
+	$(LD) -r -o zaptel zaptel.o
 
 ztdynamic: ztdynamic.o
-	ld -r -o ztdynamic ztdynamic.o
+	$(LD) -r -o ztdynamic ztdynamic.o
 
 ztd-eth: ztd-eth.o
-	ld -r -o ztd-eth ztd-eth.o
+	$(LD) -r -o ztd-eth ztd-eth.o
 
 zapadm: zapadm.c
-	gcc -g -o zapadm zapadm.c
+	$(CC) -g -o zapadm zapadm.c
 
 ztdummy: ztdummy.o
-	ld -r -o ztdummy ztdummy.o
+	$(LD) -r -o ztdummy ztdummy.o
 
 wcfxo: wcfxo.o
-	ld -r -o wcfxo wcfxo.o
+	$(LD) -r -o wcfxo wcfxo.o
 
 wctdm: wctdm.o
-	ld -r -o wctdm wctdm.o
+	$(LD) -r -o wctdm wctdm.o
 
 wcte11xp: wcte11xp.o
-	ld -r -o wcte11xp wcte11xp.o
+	$(LD) -r -o wcte11xp wcte11xp.o
 
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@
