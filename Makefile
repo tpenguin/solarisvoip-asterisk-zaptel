@@ -2,7 +2,7 @@
 # (C) 2006 Thralling Penguin LLC. All rights reserved.
 #
 CC	= gcc
-LD	= ld
+LD	= /usr/ccs/bin/ld
 VER	= 1.0
 REV	= $(shell date +'%Y.%m.%d.%H.%M')
 PKGMK	= pkgmk -o
@@ -14,7 +14,7 @@ ISA	= $(shell uname -p)
 ISABITS = $(shell isainfo -b)
 ARCH	= $(shell pkgparam SUNWcsr ARCH)
 PROC	= $(shell uname -m)
-VERSION	= $(shell pkgparam SUNWcsr SUNW_PRODVERS | cut -d/ -f1)
+VERSION	= $(shell uname -r)
 PKGARCHIVE = $(shell pwd)/$(shell uname -s)-$(shell uname -r).$(shell uname -m)
 PACKAGES=SVzaptel SVztdummy SVwctdm
 MODULES = libtonezone.so libpri zaptel ztdummy wctdm wcte11xp ztcfg zttest ztdiag 
@@ -59,7 +59,8 @@ export OPTIMIZE DEBUG
 
 CFLAGS= $(DEBUG) -DDEBUG -DSOLARIS -D_KERNEL -D_SYSCALL32 -D_SYSCALL32_IMPL -DECHO_CAN_MARK2 -I. $(OPTIMIZE)
 ifeq ($(ISABITS),64)
-	CFLAGS+=-m64 
+	CFLAGS+=-m64
+	LDFLAGS+=-64 
 endif
 ifeq ($(ISA),i386)
 	ifeq ($(ISABITS),64)
@@ -90,28 +91,28 @@ libpri: zaptel
 	( cd libpri; $(MAKE) )
 
 zaptel:	zaptel.o
-	$(LD) -r -o zaptel zaptel.o
+	$(LD) $(LDFLAGS) -r -o zaptel zaptel.o
 
 ztdynamic: ztdynamic.o
-	$(LD) -r -o ztdynamic ztdynamic.o
+	$(LD) $(LDFLAGS) -r -o ztdynamic ztdynamic.o
 
 ztd-eth: ztd-eth.o
-	$(LD) -r -o ztd-eth ztd-eth.o
+	$(LD) $(LDFLAGS) -r -o ztd-eth ztd-eth.o
 
 zapadm: zapadm.c
 	$(CC) -g -o zapadm zapadm.c
 
 ztdummy: ztdummy.o
-	$(LD) -r -o ztdummy ztdummy.o
+	$(LD) $(LDFLAGS) -r -o ztdummy ztdummy.o
 
 wcfxo: wcfxo.o
-	$(LD) -r -o wcfxo wcfxo.o
+	$(LD) $(LDFLAGS) -r -o wcfxo wcfxo.o
 
 wctdm: wctdm.o
-	$(LD) -r -o wctdm wctdm.o
+	$(LD) $(LDFLAGS) -r -o wctdm wctdm.o
 
 wcte11xp: wcte11xp.o
-	$(LD) -r -o wcte11xp wcte11xp.o
+	$(LD) $(LDFLAGS) -r -o wcte11xp wcte11xp.o
 
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@
